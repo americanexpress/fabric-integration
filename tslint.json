@@ -1,0 +1,12 @@
+{
+  "extends": "tslint-config-airbnb",
+  "rules": {
+    "import-name": [
+      true,
+      {
+        "fabricClient": "FabricClient",
+        "fabricClientLegacy": "FabricClientLegacy"
+      }
+    ]
+  }
+}
