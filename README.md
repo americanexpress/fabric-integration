@@ -157,6 +157,11 @@ try {
 }
 ```
 
+## Authors
+
+* Tajamul Fazili <tajamul.fazili@aexp.com> [TajamulFazili](https://github.com/tajamulfazili)
+* Andras L Ferenczi <andras.l.ferenczi@aexp.com> [andrasfe](https://github.com/andrasfe)
+
 ## Contributing
 
 We welcome Your interest in the American Express Open Source Community on Github. Any Contributor to any Open Source
