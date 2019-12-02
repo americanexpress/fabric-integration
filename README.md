@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/americanexpress/fabric-integration.svg?branch=master)](https://travis-ci.org/americanexpress/fabric-integration)
+[![Coverage Status](https://coveralls.io/repos/github/americanexpress/fabric-integration/badge.svg?branch=master)](https://coveralls.io/github/americanexpress/fabric-integration?branch=master)
+
 # Fabric Integration
 
 Fabric Integration is a high-level framework that abstracts connectivity details and focuses on the business aspects.It allows you to interact with hyperledger fabric network , which could be running on your local machine or remote server. It also connects to networks running on Blockchain as Service (BaaS) platforms.
