@@ -38,13 +38,13 @@ export default class Gateway implements types.Gateway {
   private config: string = null;
   private client: FabricClientLegacy | FabricClient = null;
   private currentIdentity: FabricClient.User | FabricClientLegacy.User = null;
-  private isConnected: boolean = false;
+  private isConnected = false;
   /**
    * Represents a gateway object.
    * @constructor
    * @param {boolean} [legacy=false] - If set true will use fabric version 1.1 client
    */
-  constructor(legacy: boolean = false) {
+  constructor(legacy = false) {
     this.version = legacy ? types.Versions.Legacy : types.Versions.Latest;
   }
 

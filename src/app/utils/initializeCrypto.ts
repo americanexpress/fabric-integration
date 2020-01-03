@@ -20,11 +20,11 @@ import { getClient } from './FabricClient';
 import { getLogger } from './logger';
 const logger = getLogger('initializeCrypto');
 
-export const enrollOnCA = async function enrollOnCA(
+export const enrollOnCA = async (
   client: FabricClientLegacy | FabricClient,
   username: string,
   version: string,
-) {
+) : Promise<FabricClient.User | FabricClientLegacy.User> => {
   const caClient = client.getCertificateAuthority();
   const connectionProfilePath = getClient(version).getConfigSetting(
     types.CONNECTION_PROFILE_PATH,
@@ -44,11 +44,11 @@ export const enrollOnCA = async function enrollOnCA(
     username: registrar.enrollId,
     password: registrar.enrollSecret,
   });
-  const key = types.AFFILIATION_KEY;
+  const affiliationKey = types.AFFILIATION_KEY;
   const secret = await caClient.register(
     {
       enrollmentID: username,
-      affiliation: registrar[key][0],
+      affiliation: registrar[affiliationKey][0],
     },
     adminUserObj,
   );
@@ -59,10 +59,10 @@ export const enrollOnCA = async function enrollOnCA(
   return user;
 };
 
-export const enrollUsingCerts = async function enrollUsingCerts(
+export const enrollUsingCerts = async (
   client: FabricClientLegacy | FabricClient,
   username: string,
-) {
+) : Promise<FabricClient.User | FabricClientLegacy.User> => {
   let user: FabricClient.User | FabricClientLegacy.User = null;
   const mspid = client.getMspid();
   const orgName = client.getClientConfig().organization;
@@ -85,15 +85,15 @@ export const enrollUsingCerts = async function enrollUsingCerts(
   user = await client.getUserContext(username, true);
   return user;
 };
-export const enrollIdentity = async function enrollIdentity(
+export const enrollIdentity = async (
   client: FabricClientLegacy | FabricClient,
   username: string,
   version: string,
-) {
+) : Promise<FabricClient.User | FabricClientLegacy.User> => {
   let user: FabricClient.User | FabricClientLegacy.User = null;
   try {
     const cA = client.getCertificateAuthority();
-    if (cA instanceof Error) throw cA;
+    if (cA instanceof Error) { throw cA; }
     user = await enrollOnCA(client, username, version);
   } catch (error) {
     if (
@@ -112,12 +112,12 @@ export const enrollIdentity = async function enrollIdentity(
   }
   return user;
 };
-export const initializeCrypto = async function initializeCrypto(
+export const initializeCrypto = async (
   identity: string,
   keystore: string,
   client: FabricClientLegacy | FabricClient,
   version: string,
-) {
+) : Promise<FabricClient.User | FabricClientLegacy.User> => {
   let user: FabricClient.User | FabricClientLegacy.User = null;
 
   const fabricClient = getClient(version);

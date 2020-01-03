@@ -40,6 +40,7 @@ describe('#Contract', function exec() {
   let mockPeer1: any;
   let contract: any;
   let mockTransactionID: any;
+  let transactionHandler: any;
   beforeEach(() => {
     mockChannel = sinon.createStubInstance(hf.Channel);
     mockPeer1 = sinon.createStubInstance(hf.Peer);
@@ -68,6 +69,7 @@ describe('#Contract', function exec() {
     mockChannel.getName.returns('mychaincode');
 
     contract = new Contract(network, chaincodeId, mockGateway);
+    transactionHandler = new TransactionHandler();
   });
 
   afterEach(() => {
@@ -143,6 +145,7 @@ describe('#Contract', function exec() {
     });
     describe('#getTransactionHandler', () => {
       it('returns transactionHandler Object', () => {
+        sinon.stub(transactionHandler, 'setTxnOptions');
         const expected = TransactionHandler;
         const result1 = contract.getTransactionHandler();
         const result2 = contract.getTransactionHandler();

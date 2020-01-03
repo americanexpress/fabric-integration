@@ -1,6 +1,3 @@
-[![Build Status](https://travis-ci.org/americanexpress/fabric-integration.svg?branch=master)](https://travis-ci.org/americanexpress/fabric-integration)
-[![Coverage Status](https://coveralls.io/repos/github/americanexpress/fabric-integration/badge.svg?branch=master)](https://coveralls.io/github/americanexpress/fabric-integration?branch=master)
-
 # Fabric Integration
 
 Fabric Integration is a high-level framework that abstracts connectivity details and focuses on the business aspects.It allows you to interact with hyperledger fabric network , which could be running on your local machine or remote server. It also connects to networks running on Blockchain as Service (BaaS) platforms.
@@ -12,7 +9,8 @@ You can use this project to do the following
 - Register user (supports both ca-server and local keystore)
 - Query chaincode (evaluate)
 - Invoke chaincode (submit)
-
+- Install chaincode
+- Instantiate chaincode
 ## **Getting Started**
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See usage for notes on how to use this project to connect to your running fabric network.
@@ -132,7 +130,7 @@ try {
 
   const storePath = path.join(__dirname, "path to wallet");
   const configLocation = path.join(__dirname, "path to configuration file");
-  const chaincodeId = "mychaincode";
+  const chaincodeId = "chaincode_example02";
   const identity = "bcUser";
 
   const gateway = new Gateway();
@@ -145,13 +143,47 @@ try {
   );
 
   const network = await gateway.getNetwork(channelName);
+
+  /* Install chaincode */
+  const chaincodeSpec = {language:'node', version:'1.0.0', uploadType:'zip'}
+  const chaincodeBuffer =  readfile('path/to/chaincode_example02.zip or chaincode_example02.cds');
+  let installResult = await network.installContract(chaincodeId, chaincodeBuffer, chaincodeSpec);
+  console.log(`--${installResult.payload}--`);
+
+  /* Instantiate chaincode */
+
+  const resultInstantiate = await network.instantiateContract(chaincodeId,chaincodeSpec, 'init', ['a', '100', 'b', '200']);
+  console.log(`--${resultInstantiate.payload}--`);
+
+  /* Upgrade chaincode */
+  
+  chaincodeSpec.version='1.0.1';
+  const resultUpgrade = await network.upgradeContract(chaincodeId,chaincodeSpec, 'init', ['a', '100', 'b', '200']);
+  console.log(`--${resultUpgrade.payload}--`);
+
   const contract = network.getContract(chaincodeId);
 
-  //Query chaincode
+  /* Query chaincode */
   let result = await contract.createTransaction("query").evaluate("a");
   console.log(`--${result.payload}--`);
 
-  //Submit Transaction
+  /* Register events (chaincode event listners)
+  #####################################################################
+  ### const transaction = await contract.createTransaction("move"); ###
+  ### transaction.addEventListner('testEvent', () => {});           ###
+  ### transaction.submit("a", "b", "10");                           ###
+  #####################################################################
+  */
+
+  /* Add Transaiant fields (e.g passing keys for encryption/decryption)
+  #####################################################################
+  ### const transaction = await contract.createTransaction("move"); ###
+  ### transaction.setTransient({"encrypt-key":"abc","iv":"xyz"});   ###
+  ### transaction.submit("a", "b", "10");                           ###
+  #####################################################################
+  */
+
+  /* Submit Transaction */
   result = await contract.createTransaction("move").submit("a", "b", "10");
   console.log(`--${result.payload}--`);
   gateway.disconnect();
@@ -177,7 +209,7 @@ Please feel free to open pull requests and see `CONTRIBUTING.md` for commit form
 
 ## License
 
-Any contributions made under this project will be governed by the [Apache License 2.0](LICENSE).
+Any contributions made under this project will be governed by the [Apache License 2.0](LICENSE.txt).
 
 ## Code of Conduct
 

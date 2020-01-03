@@ -18,6 +18,7 @@ import * as types from '../types';
 import FabricClient from 'fabric-client';
 import FabricClientLegacy from 'fabric-client-legacy';
 import { getLogger } from '../utils/logger';
+import EventHandler from './EventHandler';
 const logger = getLogger('TransactionHandler');
 
 const validatePeerResponses = (responses: any[]) => {
@@ -71,57 +72,13 @@ const eventHubHandler = (
     | FabricClient.ChannelEventHub
     | FabricClientLegacy.ChannelEventHub)[],
   txIdString: string,
+  txCustomEvents : types.TxnCustomEvent[],
+  chaincodeId : string,
 ) => {
   const promises: Promise<any>[] = [];
   eventHubs.forEach((eh: any) => {
-    const invokeEventPromise = new Promise((resolve, reject) => {
-      const eventTimeout = setTimeout(() => {
-        const message = `REQUEST_TIMEOUT:${eh.getPeerAddr()}`;
-        logger.error(message);
-        eh.disconnect();
-        reject(message);
-      },                              types.EVENTHUBHANDLER_TIMEOUT);
-      eh.registerTxEvent(
-        txIdString,
-        (tx: any, code: string, blockNumber: number) => {
-          logger.info(
-            'The chaincode invoke chaincode transaction has been committed on peer %s',
-            eh.getPeerAddr(),
-          );
-          logger.info(
-            'Transaction %s has status of %s in blocl %s',
-            tx,
-            code,
-            blockNumber,
-          );
-          clearTimeout(eventTimeout);
-
-          if (code !== types.EVENTHUBHANDLER_VALIDCODE) {
-            const message = util.format(
-              'The invoke chaincode transaction was invalid, code:%s',
-              code,
-            );
-            logger.error(message);
-            reject(new Error(message));
-          } else {
-            const message = 'The invoke chaincode transaction was valid.';
-            logger.info(message);
-            resolve(message);
-          }
-        },
-        (err: Error) => {
-          clearTimeout(eventTimeout);
-          logger.error(err);
-          reject(err);
-        },
-        {
-          unregister: true,
-          disconnect: true,
-        },
-      );
-      eh.connect();
-    });
-    promises.push(invokeEventPromise);
+    const eventHandler = new EventHandler(eh);
+    promises.push(eventHandler.registerTxEvent(txIdString, txCustomEvents, chaincodeId));
   });
   return promises;
 };
@@ -130,6 +87,20 @@ const eventHubHandler = (
  * State change depends upon the approval of endorcing peers.
  */
 export default class TransactionHandler implements types.TransactionHandler {
+  private txnOptions : types.TransactionOptions;
+  constructor(txnOptions?:types.TransactionOptions) {
+    this.txnOptions = txnOptions;
+
+  }
+
+  /**
+   * This method sets the transaction options for each request
+   * @param {types.TransactionOptions} txnOptions - Transaction options
+   */
+  setTxnOptions(txnOptions: types.TransactionOptions) {
+    this.txnOptions = txnOptions;
+  }
+
   /**
    * This method submits the transaction to the ledger .Transaction will be evaluated on
    * endorsing peers and then submitted to the ordering service
@@ -150,21 +121,33 @@ export default class TransactionHandler implements types.TransactionHandler {
     args: string[],
   ) {
     let response;
+    let results;
     const fabricChannel: any = channel;
-    const submitResponse: types.SubmissionResponse = {
+    const submitResponse: types.ApiResponse = {
       status: types.Response.Failure,
       payload: 'null',
     };
     let promises = [];
     const txIdString: string = txId.getTransactionID();
     const errorMessage = [];
-    const request = {
+    const transientMap = this.txnOptions.transiantMap;
+    const request : any = {
       chaincodeId,
       fcn,
       args,
       txId,
+      transientMap,
     };
-    const results = await fabricChannel.sendTransactionProposal(request);
+    if (this.txnOptions.transactionType === 'instantiate' || this.txnOptions.transactionType === 'upgrade') {
+      request.chaincodeType = this.txnOptions.chaincodeType;
+      request.chaincodeVersion = this.txnOptions.chaincodeVersion;
+      delete request.transientMap;
+      results = this.txnOptions.transactionType === 'instantiate' ?
+      await fabricChannel.sendInstantiateProposal(request, 120000) :
+       await fabricChannel.sendUpgradeProposal(request, 120000);
+    } else {
+      results = await fabricChannel.sendTransactionProposal(request);
+    }
     const proposalResponses = results[0];
     const proposal = results[1];
     const { validResponses, invalidResponses } = validatePeerResponses(
@@ -174,7 +157,7 @@ export default class TransactionHandler implements types.TransactionHandler {
       throw new Error('Did not receive all valid proposal responses');
     }
     const eventHubs = fabricChannel.getChannelEventHubsForOrg();
-    promises = eventHubHandler(eventHubs, txIdString);
+    promises = eventHubHandler(eventHubs, txIdString, this.txnOptions.txnCustomEvent, chaincodeId);
 
     const ordererRequest = {
       proposal,
