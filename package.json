@@ -15,6 +15,7 @@
     "postinstall": "node scripts/postInstall.js",
     "lint": "./node_modules/tslint/bin/tslint 'src/app/**/*.ts?(x)'",
     "build": "./node_modules/typescript/bin/tsc",
+    "prepare":"yarn build",
     "test": "XUNIT_FILE=src/test/xunit.xml nyc mocha src/test/unit/*.spec.ts src/test/unit/**/*.spec.ts --require ts-node/register -R spec-xunit-file",
     "test:integration:latest": "mocha src/test/integration/e2e-latest.spec.ts --require ts-node/register",
     "test:integration:legacy": "mocha src/test/integration/e2e-legacy.spec.ts --require ts-node/register",
