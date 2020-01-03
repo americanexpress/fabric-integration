@@ -75,14 +75,12 @@ describe('#End to End Integration Test on Local Latest Network', function exec()
       it('should return client with identity enrolled, NON CA Client', async () => {
         const client = await gatewayForNonCAClient.getClient();
         const user = await client.getUserContext(identity, true);
-        /* eslint-disable no-unused-expressions */
-        expect(user.isEnrolled()).to.be.true;
+        return expect(user.isEnrolled()).to.be.true;
       });
       it('should return client with identity enrolled , CA Client', async () => {
         const client = await gatewayForCAClient.getClient();
         const user = await client.getUserContext(cAIdentity, true);
-        /* eslint-disable no-unused-expressions */
-        expect(user.isEnrolled()).to.be.true;
+        return expect(user.isEnrolled()).to.be.true;
       });
     });
     describe('#evaluate', () => {
@@ -92,7 +90,9 @@ describe('#End to End Integration Test on Local Latest Network', function exec()
         const result = await contract.createTransaction('query').evaluate('a');
         assert.propertyVal(result, 'status', 'SUCCESS');
         return expect(
-          result.payload.some(item => item.includes('Error: Failed to connect')),
+          Array.isArray(result.payload) && result.payload.some(item => item.includes('Error: Failed to connect') ||
+          result.payload.includes('Error: Failed to connect'),
+        ),
         ).to.be.false;
       });
       it('should return query response with status success, CA Client', async () => {
@@ -102,7 +102,9 @@ describe('#End to End Integration Test on Local Latest Network', function exec()
         console.log(result);
         assert.propertyVal(result, 'status', 'SUCCESS');
         return expect(
-          result.payload.some(item => item.includes('Error: Failed to connect')),
+          Array.isArray(result.payload) && result.payload.some(item => item.includes('Error: Failed to connect') ||
+          result.payload.includes('Error: Failed to connect'),
+        ),
         ).to.be.false;
       });
     });

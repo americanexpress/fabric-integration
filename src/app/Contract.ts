@@ -81,16 +81,19 @@ export default class Contract implements types.Contract {
   /**
    * Get the transaction handler for this contract. Used by transaction submit.
    */
-  getTransactionHandler() {
-    if (this.transactionHandler) return this.transactionHandler;
-    this.transactionHandler = new TransactionHandler();
+  getTransactionHandler(txnOptions?:types.TransactionOptions) {
+    if (this.transactionHandler) {
+      this.transactionHandler.setTxnOptions(txnOptions);
+      return this.transactionHandler;
+    }
+    this.transactionHandler = new TransactionHandler(txnOptions);
     return this.transactionHandler;
   }
   /**
    * Get the query handler for this contract. Used by transaction evaluate.
    */
   getQueryHandler() {
-    if (this.queryHandler) return this.queryHandler;
+    if (this.queryHandler) { return this.queryHandler; }
     this.queryHandler = new QueryHandler(this.peerList);
     return this.queryHandler;
   }
@@ -121,7 +124,7 @@ export default class Contract implements types.Contract {
   async submitTransaction(
     name: string,
     ...args: any[]
-  ): Promise<types.SubmissionResponse> {
+  ): Promise<types.ApiResponse> {
     return this.createTransaction(name).submit(...args);
   }
 
@@ -132,7 +135,7 @@ export default class Contract implements types.Contract {
   async evaluateTransaction(
     name: string,
     ...args: any[]
-  ): Promise<types.EvaluationResponse> {
+  ): Promise<types.ApiResponse> {
     return this.createTransaction(name).evaluate(...args);
   }
 }

@@ -16,13 +16,13 @@
 
 /* tslint:disable:variable-name */
 import * as chai from 'chai';
-import * as path from 'path';
-import * as fs from 'fs-extra';
 import FabricClient from 'fabric-client';
 import FabricClientLegacy from 'fabric-client-legacy';
-import * as types from '../../app/types';
+import * as fs from 'fs-extra';
+import * as path from 'path';
 import Gateway from '../../app/Gateway';
 import Network from '../../app/Network';
+import * as types from '../../app/types';
 chai.use(require('chai-as-promised'));
 
 const { expect } = chai;

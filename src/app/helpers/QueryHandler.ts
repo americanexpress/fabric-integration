@@ -47,7 +47,7 @@ export default class QueryHandler implements types.QueryHandler {
     fcn: string,
     args: string[],
   ) {
-    const response: types.EvaluationResponse = {
+    const response: types.ApiResponse = {
       status: types.Response.Failure,
       payload: null,
     };

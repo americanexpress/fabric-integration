@@ -25,13 +25,34 @@ export const CLIENT_CONFIG_PATH =
   './node_modules/fabric-client/config/default.json';
 
 export const AFFILIATION_KEY = 'x-affiliations';
+export type ChaincodeType = 'golang' | 'car' | 'java' | 'node';
+export type AdminFunctions = 'install' | 'instantiate' | 'upgrade';
+export type UploadType = 'zip' | 'cds';
+export type eventCallback =  (err:Error,
+                              event?:FabricClient.ChaincodeEvent |
+   FabricClientLegacy.ChaincodeEvent,
+                              blockNumber?: number, tx?: any, code?: string)
+ => Promise<void> | void;
 export type Options = {
   identity: string;
   keystore: string;
 };
-export type SubmissionResponse = {
-  status: string;
-  payload: string;
+export type TxnCustomEvent = {
+  eventName: string;
+  callback: eventCallback;
+};
+export type TransactionOptions = {
+  txnCustomEvent?: TxnCustomEvent[];
+  transiantMap?: Object;
+  transactionType?:string;
+  chaincodeVersion?:string;
+  chaincodeType?:ChaincodeType;
+};
+
+export type ChaincodeSpec = {
+  language: ChaincodeType;
+  version: string;
+  uploadType?:UploadType;
 };
 export enum Versions {
   Latest = '1.4',
@@ -41,11 +62,13 @@ export enum Response {
   Success = 'SUCCESS',
   Failure = 'FAILURE',
 }
-export type EvaluationResponse = {
+export type ApiResponse = {
   status: string;
-  payload: string[];
+  payload: string | string[];
 };
-
+export interface TransientMap {
+  [key: string]: Buffer;
+}
 export interface Gateway {
   setLegacyVersion(): void;
   setLatestVersion(): void;
@@ -64,22 +87,31 @@ export interface Network {
   dispose(): void;
   getPeerList(): (FabricClient.Peer | FabricClientLegacy.Peer)[];
   getContractMap(): Map<string, Contract>;
+  installContract(chaincodeId: string, chaincode:Buffer, chaincodeSpec:ChaincodeSpec):
+   Promise<ApiResponse>;
+  upgradeContract(
+      chaincodeId: string, chaincodeSpec:ChaincodeSpec, functionName?:string, args?:string[]) :
+      Promise<ApiResponse>;
+  instantiateContract(
+    chaincodeId: string, chaincodeSpec:ChaincodeSpec, functionName?:string, args?:string[]) :
+    Promise<ApiResponse>;
 }
 
 export interface Contract {
   getNetwork(): Network;
   createTransactionID(): FabricClient.TransactionId;
-  getTransactionHandler(): TransactionHandler;
+  getTransactionHandler(txnOptions?: TransactionOptions): TransactionHandler;
   getQueryHandler(): QueryHandler;
   getChaincodeId(): string;
   createTransaction(name: string): Transaction;
-  submitTransaction(name: string, ...args: any[]): Promise<SubmissionResponse>;
+  submitTransaction(name: string, ...args: any[]): Promise<ApiResponse>;
   evaluateTransaction(
     name: string,
     ...args: any[]
-  ): Promise<EvaluationResponse>;
+  ): Promise<ApiResponse>;
 }
 export interface TransactionHandler {
+  setTxnOptions(txnOptions: TransactionOptions): void;
   submit(
     channel: FabricClient.Channel | FabricClientLegacy.Channel,
     txId: FabricClient.TransactionId,
@@ -92,9 +124,11 @@ export interface TransactionHandler {
 export interface Transaction {
   getName(): string;
   getTransactionID(): FabricClient.TransactionId;
+  addEventListner(event:string, callback:eventCallback): void;
   submit(...args: string[]): Promise<any>;
   setInvokedOrThrow(): void;
-  evaluate(...args: string[]): Promise<EvaluationResponse>;
+  evaluate(...args: string[]): Promise<ApiResponse>;
+  setTransient(transientdata : TransientMap): void;
 }
 export interface QueryHandler {
   queryChaincode(
@@ -103,5 +137,32 @@ export interface QueryHandler {
     txId: FabricClient.TransactionId,
     fcn: string,
     args: any,
+  ): Promise<any>;
+}
+export interface ChaincodeHandler {
+  installChaincode(
+client:FabricClient | FabricClientLegacy, chaincodeId: string,
+chaincode:Buffer|string, chaincodeSpec:ChaincodeSpec,
+  ): Promise<ApiResponse>;
+  instantiateOrUpgrade(
+    functionType:AdminFunctions,
+    channel: FabricClient.Channel | FabricClientLegacy.Channel,
+    txId: FabricClient.TransactionId,
+    chaincodeId: string,
+    chaincodeSpec:ChaincodeSpec,
+    fcn: string,
+    args: string[],
+  ): Promise<ApiResponse>;
+}
+export interface EventHandler {
+  registerChaincodeEvent(
+    chaincodeId: string,
+    eventName: string,
+    callback: eventCallback,
+  ): Promise<any>;
+  registerTxEvent(
+    txIdString: string,
+    txCustomEvents?: TxnCustomEvent[],
+    chaincodeId?: string,
   ): Promise<any>;
 }

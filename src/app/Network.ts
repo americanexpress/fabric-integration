@@ -17,11 +17,12 @@ import Contract from './Contract';
 import * as types from './types';
 import FabricClient from 'fabric-client';
 import FabricClientLegacy from 'fabric-client-legacy';
+import ChaincodeHandler from './helpers/ChaincodeHandler';
 import { getLogger } from './utils/logger';
 const logger = getLogger('Network');
 
 /** This class repressents the fabric channel.
- * Get Network instance using the[[Gateway.getNetwork]] method.
+ * Get Network instance using the [[Gateway.getNetwork]] method.
  * Gateway can hold multiple network instances
  * hence can execute transactions on multiple fabric channels */
 export default class Network implements types.Network {
@@ -79,7 +80,51 @@ export default class Network implements types.Network {
     return contract;
   }
   /**
-   * Clean up contracts on this neetwork
+   * This method installs new smart contract.
+   * @param {string} chaincodeId Chaincode name.
+   * @param {Buffer} chaincode buffer of chaincode zip/cds file.
+   * @param {types.ChaincodeSpec} chaincodeSpec additional information about chaincode
+   */
+
+  installContract(chaincodeId: string, chaincode:Buffer, chaincodeSpec:types.ChaincodeSpec) {
+    if (!chaincodeSpec.uploadType) {
+      throw new Error('Upload type in required for chaincode install');
+    }
+    return new ChaincodeHandler(this.getPeerList()).
+    installChaincode(this.gateway.getClient(), chaincodeId, chaincode, chaincodeSpec);
+  }
+  /**
+   * This method instantiates the installed chaincode.
+   * @param {string} chaincodeId Chaincode name.
+   * @param {types.ChaincodeSpec} chaincodeSpec additional information about chaincode
+   * @param {string} [functionName] Initialization function if any.
+   * @param {string} [args] Initialization function arguments.
+   */
+  instantiateContract(chaincodeId: string, chaincodeSpec:types.ChaincodeSpec, functionName?:string, args?:string[]) {
+    return this.chaincodeInstantiateUpgrade('instantiate',chaincodeId, chaincodeSpec, functionName, args);
+  }
+  /**
+   * This method upgrades the instantiated chaincode.
+   * @param {string} chaincodeId Chaincode name.
+   * @param {types.ChaincodeSpec} chaincodeSpec additional information about chaincode
+   * @param {string} [functionName] Initialization function if any.
+   * @param {string} [args] Initialization function arguments.
+   */
+  upgradeContract(chaincodeId: string, chaincodeSpec:types.ChaincodeSpec,functionName?:string, args?:string[]) {
+    return this.chaincodeInstantiateUpgrade('upgrade',chaincodeId, chaincodeSpec, functionName, args);
+  }
+  /**
+   * Instantiates or Upgrades chaincode
+   */
+  chaincodeInstantiateUpgrade(functionType:types.AdminFunctions,
+                              chaincodeId: string, chaincodeSpec:types.ChaincodeSpec,
+                              functionName?:string, args?:string[]) {
+    return new ChaincodeHandler(this.getPeerList()).instantiateOrUpgrade(
+      functionType, this.getChannel(), this.gateway.getClient().newTransactionID(true),
+      chaincodeId, chaincodeSpec, functionName, args);
+  }
+  /**
+   * Clears contract map of this instance
    */
   dispose() {
     this.contracts.clear();
@@ -88,7 +133,7 @@ export default class Network implements types.Network {
    * Returns list of peers on underlying channel
    */
   getPeerList() {
-    if (this.peerList) return this.peerList;
+    if (this.peerList) { return this.peerList; }
     const peersOnChannel = this.channel.getPeers();
     this.peerList = (peersOnChannel as any[]).map(item =>
       item instanceof FabricClientLegacy.Peer ? item : item.getPeer(),

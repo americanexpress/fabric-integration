@@ -15,17 +15,17 @@
  */
 
 /* tslint:disable:variable-name */
-import Contract from '../../app/Contract';
-import Network from '../../app/Network';
-import Transaction from '../../app/Transaction';
-import * as sinon from 'sinon';
 import * as chai from 'chai';
-const { expect } = chai;
-chai.use(require('chai-as-promised'));
-import TransactionHandler from '../../app/helpers/TransactionHandler';
-import QueryHandler from '../../app/helpers/QueryHandler';
 import * as FabricClient from 'fabric-client';
 import * as FabricClientLegacy from 'fabric-client-legacy';
+import * as sinon from 'sinon';
+import Contract from '../../app/Contract';
+import QueryHandler from '../../app/helpers/QueryHandler';
+import TransactionHandler from '../../app/helpers/TransactionHandler';
+import Network from '../../app/Network';
+import Transaction from '../../app/Transaction';
+const { expect } = chai;
+chai.use(require('chai-as-promised'));
 const TransactionID = require('fabric-client/lib/TransactionID');
 
 describe('Transaction', () => {
@@ -48,7 +48,7 @@ describe('Transaction', () => {
   ];
 
   let stubContract: any;
-  let transaction: any;
+  let transaction : Transaction;
   let channel: any;
   let channelLegacy: any;
   let stubQueryHandler: any;
@@ -95,7 +95,23 @@ describe('Transaction', () => {
       expect(result).to.equal(transactionName);
     });
   });
-
+  describe('#addEventListner', () => {
+    it('Adds event listner to transaction object', () => {
+      transaction.addEventListner('testEvent', () => {});
+      expect(transaction).to.have.property('txnOptions').that.is.
+      haveOwnProperty('txnCustomEvent').with.lengthOf(1);
+    });
+  });
+  describe('#setTransient', () => {
+    it('Adds transiant key to transaction object', () => {
+      transaction.setTransient({ testkey1:Buffer.from('testvalue1') });
+      expect(transaction).to.have.property('txnOptions').that.is.
+      haveOwnProperty('transiantMap').with.property('testkey1');
+      transaction.setTransient({ testkey2:Buffer.from('testvalue2') });
+      expect(transaction).to.have.property('txnOptions').that.is.
+      haveOwnProperty('transiantMap').with.property('testkey2');
+    });
+  });
   describe('#getTransactionID', () => {
     it('has a default transaction ID', () => {
       const result = transaction.getTransactionID();

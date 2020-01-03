@@ -34,6 +34,7 @@ export default class Transaction {
   private name: string;
   private transactionId: TransactionId;
   private isInvoked: boolean;
+  private txnOptions : types.TransactionOptions;
   /*
    * @param {Contract} contract Contract to which this transaction belongs.
    * @param {String} name Fully qualified transaction name.
@@ -43,6 +44,8 @@ export default class Transaction {
     this.name = name;
     this.transactionId = contract.createTransactionID();
     this.isInvoked = false;
+    this.txnOptions = { };
+
   }
   /**
    * Get the name of the transaction function.
@@ -57,6 +60,22 @@ export default class Transaction {
     return this.transactionId;
   }
   /**
+ * Add event listner to transaction.
+ */
+  addEventListner(eventName:string, callback:types.eventCallback) {
+    if (!this.txnOptions.txnCustomEvent) {
+      this.txnOptions.txnCustomEvent = [];
+    }
+    return this.txnOptions.txnCustomEvent.push({ eventName, callback });
+  }
+
+  /**
+ * Add Transaiant map to transaction.
+ */
+  setTransient(transientdata : types.TransientMap) {
+    this.txnOptions.transiantMap = transientdata;
+  }
+  /**
    * This method submits the transaction to the ledger .Transaction will be evaluated on
    * endorsing peers and then submitted to the ordering service
    * for committing to the ledger.
@@ -68,7 +87,7 @@ export default class Transaction {
     const network = this.contract.getNetwork();
     const channel = network.getChannel();
     const txId = this.transactionId;
-    const transactionHandler = this.contract.getTransactionHandler();
+    const transactionHandler = this.contract.getTransactionHandler(this.txnOptions);
     const chaincodeId = this.contract.getChaincodeId();
     const submitResponse = await transactionHandler.submit(
       channel,

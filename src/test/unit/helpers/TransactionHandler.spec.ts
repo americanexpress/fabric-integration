@@ -78,7 +78,8 @@ describe('TransactionHandler', () => {
     stubEventHub._stubInfo = 'eventHub';
     stubEventHub.getPeerAddr.returns('eventHubAddress');
     stubEventHub.registerTxEvent.yields('txID', 'VALID', '12345');
-
+    stubEventHub.registerChaincodeEvent.yields({ payload:'eventpayload' },
+                                               '12345', 'txID', 'VALID');
     transactionId = sinon.createStubInstance(TransactionID);
     transactionId.getTransactionID.returns('TRANSACTION_ID');
     stubContract.createTransactionID.returns(transactionId);
@@ -94,7 +95,9 @@ describe('TransactionHandler', () => {
 
     stubContract.getChaincodeId.returns('chaincode-id');
 
-    transactionHandler = new TransactionHandler();
+    transactionHandler = new TransactionHandler({txnCustomEvent:[{
+      eventName:'event', callback:() => {
+      } }]});
   });
 
   afterEach(() => {
