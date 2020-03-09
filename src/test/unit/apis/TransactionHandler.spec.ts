@@ -15,14 +15,14 @@
  */
 
 /* tslint:disable:variable-name */
+import { Channel, ChannelEventHub } from 'fabric-client';
 import Contract from '../../../app/Contract';
 import Network from '../../../app/Network';
-const Channel = require('fabric-client-legacy/lib/Channel');
-const TransactionID = require('fabric-client-legacy/lib/TransactionID');
-const EventHub = require('fabric-client-legacy/lib/ChannelEventHub');
-import * as sinon from 'sinon';
+const TransactionID = require('fabric-client/lib/TransactionID');
+
 import * as chai from 'chai';
-import TransactionHandler from '../../../app/helpers/TransactionHandler';
+import * as sinon from 'sinon';
+import TransactionHandler from '../../../app/apis/TransactionHandler';
 const { expect } = chai;
 chai.use(require('chai-as-promised'));
 
@@ -72,14 +72,18 @@ describe('TransactionHandler', () => {
 
   beforeEach(() => {
     stubContract = sinon.createStubInstance(Contract);
-    stubEventHub = sinon.createStubInstance(EventHub);
+    stubEventHub = sinon.createStubInstance(ChannelEventHub);
     stubEventHub.connect.returns(true);
     stubEventHub.disconnect.returns(true);
     stubEventHub._stubInfo = 'eventHub';
     stubEventHub.getPeerAddr.returns('eventHubAddress');
     stubEventHub.registerTxEvent.yields('txID', 'VALID', '12345');
-    stubEventHub.registerChaincodeEvent.yields({ payload:'eventpayload' },
-                                               '12345', 'txID', 'VALID');
+    stubEventHub.registerChaincodeEvent.yields(
+      { payload: 'eventpayload' },
+      '12345',
+      'txID',
+      'VALID',
+    );
     transactionId = sinon.createStubInstance(TransactionID);
     transactionId.getTransactionID.returns('TRANSACTION_ID');
     stubContract.createTransactionID.returns(transactionId);
@@ -95,9 +99,14 @@ describe('TransactionHandler', () => {
 
     stubContract.getChaincodeId.returns('chaincode-id');
 
-    transactionHandler = new TransactionHandler({txnCustomEvent:[{
-      eventName:'event', callback:() => {
-      } }]});
+    transactionHandler = new TransactionHandler({
+      txnCustomEvent: [
+        {
+          eventName: 'event',
+          callback: () => {},
+        },
+      ],
+    });
   });
 
   afterEach(() => {

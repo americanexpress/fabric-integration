@@ -13,13 +13,15 @@
  * or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-import {
-  eventCallback, EventHandler as EventHandlerInterface, EVENTHUBHANDLER_TIMEOUT,
-  EVENTHUBHANDLER_VALIDCODE, TxnCustomEvent,
-} from '../types';
-import util from 'util';
 import FabricClient from 'fabric-client';
-import FabricClientLegacy from 'fabric-client-legacy';
+import util from 'util';
+import {
+  eventCallback,
+  EventHandler as EventHandlerInterface,
+  EVENTHUBHANDLER_TIMEOUT,
+  EVENTHUBHANDLER_VALIDCODE,
+  TxnCustomEvent,
+} from '../types';
 import { getLogger } from '../utils/logger';
 const logger = getLogger('EventHandler');
 /**
@@ -27,9 +29,9 @@ const logger = getLogger('EventHandler');
  *
  */
 export default class EventHandler implements EventHandlerInterface {
-  private eventHub: (FabricClient.ChannelEventHub | FabricClientLegacy.ChannelEventHub);
+  private eventHub: FabricClient.ChannelEventHub;
 
-  constructor(eventHub: (FabricClient.ChannelEventHub | FabricClientLegacy.ChannelEventHub)) {
+  constructor(eventHub: FabricClient.ChannelEventHub) {
     this.eventHub = eventHub;
   }
   /**
@@ -39,11 +41,11 @@ export default class EventHandler implements EventHandlerInterface {
    * @param {string} eventName - Event Name
    * @param {Function} callback - Callback function
    */
-  async registerChaincodeEvent(
+  public async registerChaincodeEvent(
     chaincodeId: string,
     eventName: string,
     callback: eventCallback,
-  ) : Promise<void> {
+  ): Promise<void> {
     const eventTimeout = setTimeout(() => {
       const message = `REQUEST_TIMEOUT:${this.eventHub.getPeerAddr()}`;
       logger.error(message);
@@ -51,11 +53,14 @@ export default class EventHandler implements EventHandlerInterface {
       callback(new Error(message));
     },                              EVENTHUBHANDLER_TIMEOUT);
     this.eventHub.registerChaincodeEvent(
-      chaincodeId, eventName,
-      (event, blockNumber: number, tx: any, code: string) => {
+      chaincodeId,
+      eventName,
+      (event, blockNumber, tx, code) => {
         logger.info(
           'Event executed : %s , Peer Address : %s , event payload : %s ',
-          event.event_name, this.eventHub.getPeerAddr(), event.payload.toString('utf-8') ,
+          event.event_name,
+          this.eventHub.getPeerAddr(),
+          event.payload.toString('utf-8'),
         );
         logger.info(
           'Transaction %s has status of %s in blocl %s',
@@ -97,12 +102,12 @@ export default class EventHandler implements EventHandlerInterface {
    * @param {types.TxnCustomEvent[]} txCustomEvents - custom chaincode events
    * @param {string} chaincodeId - chaincode
    */
-  async registerTxEvent(
+  public async registerTxEvent(
     txIdString: string,
     txCustomEvents: TxnCustomEvent[],
     chaincodeId: string,
-  ) {
-    const invokeEventPromise = new Promise((resolve, reject) => {
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
       const eventTimeout = setTimeout(() => {
         const message = `REQUEST_TIMEOUT:${this.eventHub.getPeerAddr()}`;
         logger.error(message);
@@ -111,7 +116,7 @@ export default class EventHandler implements EventHandlerInterface {
       },                              EVENTHUBHANDLER_TIMEOUT);
       this.eventHub.registerTxEvent(
         txIdString,
-        (tx: any, code: string, blockNumber: number) => {
+        (tx, code, blockNumber) => {
           logger.info(
             'The chaincode invoke chaincode transaction has been committed on peer %s',
             this.eventHub.getPeerAddr(),
@@ -137,10 +142,10 @@ export default class EventHandler implements EventHandlerInterface {
             if (txCustomEvents) {
               txCustomEvents.forEach((event: TxnCustomEvent) => {
                 this.registerChaincodeEvent(
-                chaincodeId,
-                event.eventName,
-                event.callback,
-              );
+                  chaincodeId,
+                  event.eventName,
+                  event.callback,
+                );
               });
             }
             resolve(message);
@@ -158,6 +163,5 @@ export default class EventHandler implements EventHandlerInterface {
       );
       this.eventHub.connect(true);
     });
-    return invokeEventPromise;
   }
 }

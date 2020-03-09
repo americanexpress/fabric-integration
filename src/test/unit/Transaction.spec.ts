@@ -17,11 +17,10 @@
 /* tslint:disable:variable-name */
 import * as chai from 'chai';
 import * as FabricClient from 'fabric-client';
-import * as FabricClientLegacy from 'fabric-client-legacy';
 import * as sinon from 'sinon';
+import QueryHandler from '../../app/apis/QueryHandler';
+import TransactionHandler from '../../app/apis/TransactionHandler';
 import Contract from '../../app/Contract';
-import QueryHandler from '../../app/helpers/QueryHandler';
-import TransactionHandler from '../../app/helpers/TransactionHandler';
 import Network from '../../app/Network';
 import Transaction from '../../app/Transaction';
 const { expect } = chai;
@@ -48,9 +47,8 @@ describe('Transaction', () => {
   ];
 
   let stubContract: any;
-  let transaction : Transaction;
+  let transaction: Transaction;
   let channel: any;
-  let channelLegacy: any;
   let stubQueryHandler: any;
   let network: any;
 
@@ -75,10 +73,6 @@ describe('Transaction', () => {
     channel.sendTransaction.resolves({ status: 'SUCCESS' });
     network.getChannel.returns(channel);
 
-    channelLegacy = sinon.createStubInstance(FabricClientLegacy.Channel);
-    channelLegacy.sendTransactionProposal.resolves(validProposalResponses);
-    channelLegacy.sendTransaction.resolves({ status: 'SUCCESS' });
-
     stubContract.getChaincodeId.returns('chaincode-id');
     stubContract.getTransactionHandler.returns(transactionHandler);
 
@@ -95,21 +89,49 @@ describe('Transaction', () => {
       expect(result).to.equal(transactionName);
     });
   });
-  describe('#addEventListner', () => {
-    it('Adds event listner to transaction object', () => {
-      transaction.addEventListner('testEvent', () => {});
-      expect(transaction).to.have.property('txnOptions').that.is.
-      haveOwnProperty('txnCustomEvent').with.lengthOf(1);
+  describe('#setTransactionOptions', () => {
+    it('Adds transactionType key to transaction object', () => {
+      const txoptions = {
+        transactionType: 'install',
+      };
+      transaction.setTransactionOptions(txoptions);
+      // transaction.setTransient({ testkey1: Buffer.from('testvalue1') });
+      expect(transaction)
+        .to.have.property('txnOptions')
+        .that.is.haveOwnProperty('transactionType')
+        .with.equals('install');
     });
-  });
-  describe('#setTransient', () => {
-    it('Adds transiant key to transaction object', () => {
-      transaction.setTransient({ testkey1:Buffer.from('testvalue1') });
-      expect(transaction).to.have.property('txnOptions').that.is.
-      haveOwnProperty('transiantMap').with.property('testkey1');
-      transaction.setTransient({ testkey2:Buffer.from('testvalue2') });
-      expect(transaction).to.have.property('txnOptions').that.is.
-      haveOwnProperty('transiantMap').with.property('testkey2');
+    it('Adds transiantMap to txnOptions of transaction object', () => {
+      const txnOptions = {
+        transiantMap: {
+          testkey1: Buffer.from('testvalue1'),
+          testkey2: Buffer.from('testvalue2'),
+        },
+      };
+      transaction.setTransactionOptions(txnOptions);
+      expect(transaction)
+        .to.have.property('txnOptions')
+        .that.is.haveOwnProperty('transiantMap')
+        .with.property('testkey1');
+      expect(transaction)
+        .to.have.property('txnOptions')
+        .that.is.haveOwnProperty('transiantMap')
+        .with.property('testkey2');
+    });
+    it('Adds customEventListner to txnOptions of transaction object', () => {
+      const txnOptions = {
+        txnCustomEvent: [
+          {
+            eventName: 'testevent1',
+            callback: () => {},
+          },
+        ],
+      };
+      transaction.setTransactionOptions(txnOptions);
+      expect(transaction)
+        .to.have.property('txnOptions')
+        .that.is.haveOwnProperty('txnCustomEvent')
+        .with.lengthOf(1);
     });
   });
   describe('#getTransactionID', () => {
@@ -137,12 +159,6 @@ describe('Transaction', () => {
   });
   describe('#evaluate', () => {
     it('returns empty string response', async () => {
-      stubQueryHandler.queryChaincode.resolves(Buffer.from(''));
-      const result = await transaction.evaluate();
-      expect(result.toString()).to.equal('');
-    });
-    it('returns empty string response', async () => {
-      network.getChannel.returns(channelLegacy);
       stubQueryHandler.queryChaincode.resolves(Buffer.from(''));
       const result = await transaction.evaluate();
       expect(result.toString()).to.equal('');

@@ -13,23 +13,24 @@
  * or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+import FabricClient from 'fabric-client';
+import ChaincodeHandler from './apis/ChaincodeHandler';
 import Contract from './Contract';
 import * as types from './types';
-import FabricClient from 'fabric-client';
-import FabricClientLegacy from 'fabric-client-legacy';
-import ChaincodeHandler from './helpers/ChaincodeHandler';
 import { getLogger } from './utils/logger';
 const logger = getLogger('Network');
 
-/** This class repressents the fabric channel.
+/**
+ * This class repressents the fabric channel.
  * Get Network instance using the [[Gateway.getNetwork]] method.
  * Gateway can hold multiple network instances
- * hence can execute transactions on multiple fabric channels */
+ * hence can execute transactions on multiple fabric channels
+ */
 export default class Network implements types.Network {
   private gateway: types.Gateway;
-  private channel: FabricClient.Channel | FabricClientLegacy.Channel;
+  private channel: FabricClient.Channel;
   private contracts: Map<string, types.Contract>;
-  private peerList: (FabricClient.Peer | FabricClientLegacy.Peer)[];
+  private peerList: FabricClient.Peer[];
   /**
    * Represents a network object.
    * @constructor
@@ -38,10 +39,7 @@ export default class Network implements types.Network {
    * @param {Channel} channel - Hyperledger fabric channel oject
    * @throws {Error}
    */
-  constructor(
-    gateway: types.Gateway,
-    channel: FabricClient.Channel | FabricClientLegacy.Channel,
-  ) {
+  constructor(gateway: types.Gateway, channel: FabricClient.Channel) {
     this.gateway = gateway;
     this.channel = channel;
     this.contracts = new Map();
@@ -49,13 +47,13 @@ export default class Network implements types.Network {
   /**
    * Get the underlying channel object representation of this network.
    */
-  getChannel() {
+  public getChannel() {
     return this.channel;
   }
   /**
    * Get the list of contracts added to this network
    */
-  getContractMap() {
+  public getContractMap() {
     return this.contracts;
   }
   /**
@@ -65,7 +63,7 @@ export default class Network implements types.Network {
    * @example
    *     network.getContract('mychaincode')
    */
-  getContract(chaincodeId: string) {
+  public getContract(chaincodeId: string) {
     if (!this.gateway || !this.channel || !this.gateway.getIsConnected()) {
       const message = 'Unable to return contract from disconnected network';
       logger.error(message);
@@ -86,12 +84,17 @@ export default class Network implements types.Network {
    * @param {types.ChaincodeSpec} chaincodeSpec additional information about chaincode
    */
 
-  installContract(chaincodeId: string, chaincode:Buffer, chaincodeSpec:types.ChaincodeSpec) {
-    if (!chaincodeSpec.uploadType) {
-      throw new Error('Upload type in required for chaincode install');
-    }
-    return new ChaincodeHandler(this.getPeerList()).
-    installChaincode(this.gateway.getClient(), chaincodeId, chaincode, chaincodeSpec);
+  public installContract(
+    chaincodeId: string,
+    chaincode: Buffer,
+    chaincodeSpec: Required<types.ChaincodeSpec>,
+  ) {
+    return new ChaincodeHandler(this.getPeerList()).installChaincode(
+      this.gateway.getClient(),
+      chaincodeId,
+      chaincode,
+      chaincodeSpec,
+    );
   }
   /**
    * This method instantiates the installed chaincode.
@@ -100,8 +103,19 @@ export default class Network implements types.Network {
    * @param {string} [functionName] Initialization function if any.
    * @param {string} [args] Initialization function arguments.
    */
-  instantiateContract(chaincodeId: string, chaincodeSpec:types.ChaincodeSpec, functionName?:string, args?:string[]) {
-    return this.chaincodeInstantiateUpgrade('instantiate',chaincodeId, chaincodeSpec, functionName, args);
+  public instantiateContract(
+    chaincodeId: string,
+    chaincodeSpec: types.ChaincodeSpec,
+    functionName?: string,
+    args?: string[],
+  ) {
+    return this.chaincodeInstantiateUpgrade(
+      'instantiate',
+      chaincodeId,
+      chaincodeSpec,
+      functionName,
+      args,
+    );
   }
   /**
    * This method upgrades the instantiated chaincode.
@@ -110,34 +124,55 @@ export default class Network implements types.Network {
    * @param {string} [functionName] Initialization function if any.
    * @param {string} [args] Initialization function arguments.
    */
-  upgradeContract(chaincodeId: string, chaincodeSpec:types.ChaincodeSpec,functionName?:string, args?:string[]) {
-    return this.chaincodeInstantiateUpgrade('upgrade',chaincodeId, chaincodeSpec, functionName, args);
+  public upgradeContract(
+    chaincodeId: string,
+    chaincodeSpec: types.ChaincodeSpec,
+    functionName?: string,
+    args?: string[],
+  ) {
+    return this.chaincodeInstantiateUpgrade(
+      'upgrade',
+      chaincodeId,
+      chaincodeSpec,
+      functionName,
+      args,
+    );
   }
   /**
    * Instantiates or Upgrades chaincode
    */
-  chaincodeInstantiateUpgrade(functionType:types.AdminFunctions,
-                              chaincodeId: string, chaincodeSpec:types.ChaincodeSpec,
-                              functionName?:string, args?:string[]) {
+  public chaincodeInstantiateUpgrade(
+    functionType: types.AdminFunctions,
+    chaincodeId: string,
+    chaincodeSpec: types.ChaincodeSpec,
+    functionName?: string,
+    args?: string[],
+  ) {
     return new ChaincodeHandler(this.getPeerList()).instantiateOrUpgrade(
-      functionType, this.getChannel(), this.gateway.getClient().newTransactionID(true),
-      chaincodeId, chaincodeSpec, functionName, args);
+      functionType,
+      this.getChannel(),
+      this.gateway.getClient().newTransactionID(true),
+      chaincodeId,
+      chaincodeSpec,
+      functionName,
+      args,
+    );
   }
   /**
    * Clears contract map of this instance
    */
-  dispose() {
+  public dispose() {
     this.contracts.clear();
   }
   /**
    * Returns list of peers on underlying channel
    */
-  getPeerList() {
-    if (this.peerList) { return this.peerList; }
+  public getPeerList() {
+    if (this.peerList) {
+      return this.peerList;
+    }
     const peersOnChannel = this.channel.getPeers();
-    this.peerList = (peersOnChannel as any[]).map(item =>
-      item instanceof FabricClientLegacy.Peer ? item : item.getPeer(),
-    );
+    this.peerList = peersOnChannel.map(item => item.getPeer());
     return this.peerList;
   }
 }

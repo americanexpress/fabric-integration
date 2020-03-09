@@ -15,10 +15,10 @@
  */
 
 /* tslint:disable:variable-name */
-const EventHub = require('fabric-client-legacy/lib/ChannelEventHub');
-import * as sinon from 'sinon';
 import * as chai from 'chai';
-import EventHandler from '../../../app/helpers/EventHandler';
+import { ChannelEventHub } from 'fabric-client';
+import * as sinon from 'sinon';
+import EventHandler from '../../../app/apis/EventHandler';
 const { expect } = chai;
 chai.use(require('chai-as-promised'));
 
@@ -26,14 +26,18 @@ describe('EventHandler', () => {
   let eventHandler: EventHandler;
   let stubEventHub: any;
   beforeEach(() => {
-    stubEventHub = sinon.createStubInstance(EventHub);
+    stubEventHub = sinon.createStubInstance(ChannelEventHub);
     stubEventHub.connect.returns(true);
     stubEventHub.disconnect.returns(true);
     stubEventHub._stubInfo = 'eventHub';
     stubEventHub.getPeerAddr.returns('eventHubAddress');
     stubEventHub.registerTxEvent.yields('txID', 'VALID', '12345');
-    stubEventHub.registerChaincodeEvent.yields({ payload:'eventpayload' },
-                                               '12345', 'txID', 'VALID');
+    stubEventHub.registerChaincodeEvent.yields(
+      { payload: 'eventpayload' },
+      '12345',
+      'txID',
+      'VALID',
+    );
     eventHandler = new EventHandler(stubEventHub);
   });
 
@@ -50,13 +54,24 @@ describe('EventHandler', () => {
         'eventName',
         callback,
       );
-      expect(callback.calledOnceWith(null, { payload:'eventpayload' },
-                                     '12345', 'txID', 'VALID')).to.be.true;
+      expect(
+        callback.calledOnceWith(
+          null,
+          { payload: 'eventpayload' },
+          '12345',
+          'txID',
+          'VALID',
+        ),
+      ).to.be.true;
     });
     it('should return failure ', async () => {
       const callback = sinon.stub();
-      stubEventHub.registerChaincodeEvent.yields({ payload:'eventpayload' },
-                                                 '12345', 'txID', 'INVALID');
+      stubEventHub.registerChaincodeEvent.yields(
+        { payload: 'eventpayload' },
+        '12345',
+        'txID',
+        'INVALID',
+      );
       await eventHandler.registerChaincodeEvent(
         'chaincodeId',
         'eventName',
@@ -97,21 +112,18 @@ describe('EventHandler', () => {
   describe('#registerTxEvent', function exec() {
     this.timeout(30000);
     it('should return success ', async () => {
-      return expect(eventHandler.registerTxEvent(
-        'txIdString', null, null,
-      )).to.not.be.rejected;
+      return expect(eventHandler.registerTxEvent('txIdString', null, null)).to
+        .not.be.rejected;
     });
     it('should fail for invalid eventhub response ', async () => {
       stubEventHub.registerTxEvent.yields('txID', 'INVALID', '12345');
-      return expect(eventHandler.registerTxEvent(
-        'txIdString', null, null,
-      )).to.be.rejected;
+      return expect(eventHandler.registerTxEvent('txIdString', null, null)).to
+        .be.rejected;
     });
     it('should return failure on eventhub failure', async () => {
       stubEventHub.registerTxEvent.yieldsRight(new Error('Im Error'));
-      return expect(eventHandler.registerTxEvent(
-        'txIdString', null, null,
-      )).to.be.rejected;
+      return expect(eventHandler.registerTxEvent('txIdString', null, null)).to
+        .be.rejected;
     });
     it('should return failure on eventhub timeout', async () => {
       const clock = sinon.useFakeTimers();
@@ -120,9 +132,8 @@ describe('EventHandler', () => {
         return 'hello';
       };
       stubEventHub.disconnect.returns(true);
-      return expect(eventHandler.registerTxEvent(
-        'txIdString', null, null,
-      )).to.be.rejected;
+      return expect(eventHandler.registerTxEvent('txIdString', null, null)).to
+        .be.rejected;
     });
   });
 });

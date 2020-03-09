@@ -16,20 +16,20 @@
 
 /* tslint:disable:variable-name */
 import { expect } from 'chai';
-import Network from '../../app/Network';
-import Gateway from '../../app/Gateway';
-import Contract from '../../app/Contract';
-import Transaction from '../../app/Transaction';
+import FabricClient from 'fabric-client';
 import * as sinon from 'sinon';
-import TransactionHandler from '../../app/helpers/TransactionHandler';
-import QueryHandler from '../../app/helpers/QueryHandler';
-import * as hf from 'fabric-client';
+import QueryHandler from '../../app/apis/QueryHandler';
+import TransactionHandler from '../../app/apis/TransactionHandler';
+import Contract from '../../app/Contract';
+import Gateway from '../../app/Gateway';
+import Network from '../../app/Network';
+import Transaction from '../../app/Transaction';
 const Client = require('fabric-client');
 const TransactionID = require('fabric-client/lib/TransactionID');
 const chaincodeId = 'mycc';
 class ChannelPeer {
   constructor() {}
-  getPeer() {}
+  public getPeer() {}
 }
 describe('#Contract', function exec() {
   this.timeout(10000);
@@ -42,9 +42,9 @@ describe('#Contract', function exec() {
   let mockTransactionID: any;
   let transactionHandler: any;
   beforeEach(() => {
-    mockChannel = sinon.createStubInstance(hf.Channel);
-    mockPeer1 = sinon.createStubInstance(hf.Peer);
-    const mockPeer2: any = sinon.createStubInstance(hf.Peer);
+    mockChannel = sinon.createStubInstance(FabricClient.Channel);
+    mockPeer1 = sinon.createStubInstance(FabricClient.Peer);
+    const mockPeer2: any = sinon.createStubInstance(FabricClient.Peer);
     mockPeer1.index = 1;
     mockPeer1.getName.returns('Peer1');
     mockPeer2.index = 1;
@@ -113,7 +113,10 @@ describe('#Contract', function exec() {
     describe('#submitTransaction', () => {
       it('submits a transaction with supplied arguments', async () => {
         const args = ['a', 'b', 'c'];
-        const expected = Buffer.from('result');
+        const expected = {
+          status: 'SUCCESS',
+          payload: 'result',
+        }; // Buffer.from('result');
         const stubTransaction = sinon.createStubInstance(Transaction);
         stubTransaction.submit.withArgs(...args).resolves(expected);
         sinon.stub(contract, 'createTransaction').returns(stubTransaction);
@@ -125,7 +128,10 @@ describe('#Contract', function exec() {
     describe('#evaluateTransaction', () => {
       it('evaluates a transaction with supplied arguments', async () => {
         const args = ['a', 'b', 'c'];
-        const expected = Buffer.from('result');
+        const expected = {
+          status: 'SUCCESS',
+          payload: 'result',
+        };
         const stubTransaction = sinon.createStubInstance(Transaction);
         stubTransaction.evaluate.withArgs(...args).resolves(expected);
         sinon.stub(contract, 'createTransaction').returns(stubTransaction);

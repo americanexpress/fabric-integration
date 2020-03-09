@@ -13,12 +13,11 @@
  * or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-import * as types from './types';
-import Transaction from './Transaction';
-import TransactionHandler from './helpers/TransactionHandler';
-import QueryHandler from './helpers/QueryHandler';
 import FabricClient from 'fabric-client';
-import FabricClientLegacy from 'fabric-client-legacy';
+import QueryHandler from './apis/QueryHandler';
+import TransactionHandler from './apis/TransactionHandler';
+import Transaction from './Transaction';
+import * as types from './types';
 import { getLogger } from './utils/logger';
 const logger = getLogger('Contract');
 const STRING_TYPE = 'string';
@@ -36,14 +35,15 @@ const verifyTransactionName = (name: string) => {
     throw new Error(msg);
   }
 };
-/** This class provides access to [[TransactionHandler]] and [[QueryHandler]] objects which controls
+/**
+ * This class provides access to [[TransactionHandler]] and [[QueryHandler]] objects which controls
  * communication and execution of transactions on fabric network. Transactions can
  * be created using [[createTransaction]] method of this class .
  * Get Contract instance using [[Network.getContract]].
  */
 export default class Contract implements types.Contract {
   private network: types.Network;
-  private peerList: (FabricClient.Peer | FabricClientLegacy.Peer)[];
+  private peerList: FabricClient.Peer[];
   private chaincodeId: string;
   private gateway: types.Gateway;
   private transactionHandler: types.TransactionHandler;
@@ -69,19 +69,19 @@ export default class Contract implements types.Contract {
   /**
    * Get the parent network on which this contract exists.
    */
-  getNetwork() {
+  public getNetwork() {
     return this.network;
   }
   /**
    * Creates a new transaction ID.
    */
-  createTransactionID() {
+  public createTransactionID() {
     return this.gateway.getClient().newTransactionID();
   }
   /**
    * Get the transaction handler for this contract. Used by transaction submit.
    */
-  getTransactionHandler(txnOptions?:types.TransactionOptions) {
+  public getTransactionHandler(txnOptions?: types.TransactionOptions) {
     if (this.transactionHandler) {
       this.transactionHandler.setTxnOptions(txnOptions);
       return this.transactionHandler;
@@ -92,15 +92,17 @@ export default class Contract implements types.Contract {
   /**
    * Get the query handler for this contract. Used by transaction evaluate.
    */
-  getQueryHandler() {
-    if (this.queryHandler) { return this.queryHandler; }
+  public getQueryHandler() {
+    if (this.queryHandler) {
+      return this.queryHandler;
+    }
     this.queryHandler = new QueryHandler(this.peerList);
     return this.queryHandler;
   }
   /**
    * Get the chaincode ID of this contract.
    */
-  getChaincodeId() {
+  public getChaincodeId() {
     return this.chaincodeId;
   }
 
@@ -109,10 +111,9 @@ export default class Contract implements types.Contract {
    *  A new transaction object <strong>must</strong>
    * be created for each transaction invocation.
    */
-  createTransaction(name: string) {
+  public createTransaction(name: string): Transaction {
     verifyTransactionName(name);
-    const transaction: Transaction = new Transaction(this, name);
-    return transaction;
+    return new Transaction(this, name);
   }
 
   /**
@@ -121,9 +122,9 @@ export default class Contract implements types.Contract {
    * on the endorsing peers and then submitted to the ordering service which then be committed
    * to the ledger
    */
-  async submitTransaction(
+  public async submitTransaction(
     name: string,
-    ...args: any[]
+    ...args: string[]
   ): Promise<types.ApiResponse> {
     return this.createTransaction(name).submit(...args);
   }
@@ -132,9 +133,9 @@ export default class Contract implements types.Contract {
    * This method only evaluates the transaction function , hence the response is not sent to
    * orderer. This method is used to query the state of ledger.
    */
-  async evaluateTransaction(
+  public async evaluateTransaction(
     name: string,
-    ...args: any[]
+    ...args: string[]
   ): Promise<types.ApiResponse> {
     return this.createTransaction(name).evaluate(...args);
   }

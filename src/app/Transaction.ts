@@ -13,8 +13,8 @@
  * or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-import * as types from './types';
 import { TransactionId } from 'fabric-client';
+import * as types from './types';
 import { getLogger } from './utils/logger';
 const logger = getLogger('Transaction');
 
@@ -34,7 +34,7 @@ export default class Transaction {
   private name: string;
   private transactionId: TransactionId;
   private isInvoked: boolean;
-  private txnOptions : types.TransactionOptions;
+  private txnOptions: types.TransactionOptions;
   /*
    * @param {Contract} contract Contract to which this transaction belongs.
    * @param {String} name Fully qualified transaction name.
@@ -44,36 +44,25 @@ export default class Transaction {
     this.name = name;
     this.transactionId = contract.createTransactionID();
     this.isInvoked = false;
-    this.txnOptions = { };
-
+    this.txnOptions = {};
   }
   /**
    * Get the name of the transaction function.
    */
-  getName() {
+  public getName() {
     return this.name;
   }
   /**
    * Get the ID that will be used for this transaction invocation.
    */
-  getTransactionID() {
+  public getTransactionID() {
     return this.transactionId;
   }
   /**
- * Add event listner to transaction.
- */
-  addEventListner(eventName:string, callback:types.eventCallback) {
-    if (!this.txnOptions.txnCustomEvent) {
-      this.txnOptions.txnCustomEvent = [];
-    }
-    return this.txnOptions.txnCustomEvent.push({ eventName, callback });
-  }
-
-  /**
- * Add Transaiant map to transaction.
- */
-  setTransient(transientdata : types.TransientMap) {
-    this.txnOptions.transiantMap = transientdata;
+   * Set transaction options to transaction.
+   */
+  public setTransactionOptions(txnOptions: types.TransactionOptions) {
+    this.txnOptions = txnOptions;
   }
   /**
    * This method submits the transaction to the ledger .Transaction will be evaluated on
@@ -82,26 +71,27 @@ export default class Transaction {
    * @async
    * @param {...String} [args] Transaction function arguments.
    */
-  async submit(...args: string[]) {
+  public async submit(...args: string[]) {
     this.setInvokedOrThrow();
     const network = this.contract.getNetwork();
     const channel = network.getChannel();
     const txId = this.transactionId;
-    const transactionHandler = this.contract.getTransactionHandler(this.txnOptions);
+    const transactionHandler = this.contract.getTransactionHandler(
+      this.txnOptions,
+    );
     const chaincodeId = this.contract.getChaincodeId();
-    const submitResponse = await transactionHandler.submit(
+    return transactionHandler.submit(
       channel,
       txId,
       this.name,
       chaincodeId,
       args,
     );
-    return submitResponse;
   }
   /**
    * Checks if the transaction has already been invoked
    */
-  setInvokedOrThrow() {
+  public setInvokedOrThrow() {
     if (this.isInvoked) {
       const errorMessage = 'Transaction has already been invoked';
       logger.error(errorMessage);
@@ -117,7 +107,7 @@ export default class Transaction {
    * @async
    * @param {...String} [args] Transaction function arguments.
    */
-  async evaluate(...args: string[]) {
+  public async evaluate(...args: string[]) {
     this.setInvokedOrThrow();
 
     const queryHandler = this.contract.getQueryHandler();

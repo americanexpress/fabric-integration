@@ -16,16 +16,15 @@
 
 /* tslint:disable:variable-name */
 import * as chai from 'chai';
+import FabricClient, { User } from 'fabric-client';
+import * as path from 'path';
+import * as sinon from 'sinon';
 import {
-  initializeCrypto,
   enrollIdentity,
   enrollOnCA,
   enrollUsingCerts,
+  initializeCrypto,
 } from '../../../app/utils/initializeCrypto';
-import * as sinon from 'sinon';
-import { User } from 'fabric-client';
-import * as path from 'path';
-const Client = require('fabric-client');
 const CertificateAuthority = require('fabric-client/lib/CertificateAuthority');
 chai.use(require('chai-as-promised'));
 const configWithCA = path.join(
@@ -55,7 +54,7 @@ describe('#initializeCrypto', () => {
     mockCA.getCaName.returns('ca-org1');
     mockCA.register.returns('secret');
     mockCA.enroll.returns(mockIEnrollResponse);
-    mockClient = sinon.createStubInstance(Client);
+    mockClient = sinon.createStubInstance(FabricClient);
     mockClient.setUserContext.returns(mockUser);
     mockClient.getMspid.returns(mspid);
     mockClient.getClientConfig.returns({ organization: mspid });
@@ -81,7 +80,7 @@ describe('#initializeCrypto', () => {
       it('should throw  ', async () => {
         mockClient.getUserContext.rejects(new Error('Error'));
         try {
-          await initializeCrypto('me', '/tmp/dummy', mockClient, '1.1');
+          await initializeCrypto('me', '/tmp/dummy', mockClient);
           expect.fail();
         } catch (error) {
           expect(error.message).to.eql('Error');
@@ -89,40 +88,30 @@ describe('#initializeCrypto', () => {
       });
       it('should return existing user ', async () => {
         mockClient.getUserContext.returns(mockUser);
-        const result = await initializeCrypto(
-          'me',
-          '/tmp/dummy',
-          mockClient,
-          '1.1',
-        );
+        const result = await initializeCrypto('me', '/tmp/dummy', mockClient);
         expect(result).to.be.eql(mockUser);
       });
       it('should return user ', async () => {
         mockClient.getUserContext.resolves(null);
         mockClient.createUser.returns(mockUser);
-        Client.setConfigSetting(
+        FabricClient.setConfigSetting(
           'network-connection-profile-path',
           configWithCA,
         );
-        const result = await initializeCrypto(
-          'me',
-          '/tmp/dummy',
-          mockClient,
-          '1.1',
-        );
+        const result = await initializeCrypto('me', '/tmp/dummy', mockClient);
         expect(result).to.be.eql(mockUser);
       });
     });
     describe('#enrollOnCA', () => {
       it('should return user oject', async () => {
         mockClient.createUser.returns(mockUser);
-        const result = await enrollOnCA(mockClient, 'admin', '1.1');
+        const result = await enrollOnCA(mockClient, 'admin');
         expect(result).to.be.eql(mockUser);
       });
       it('should throw', async () => {
         mockCA.register.rejects(new Error('Already exists'));
         try {
-          await enrollOnCA(mockClient, 'admin', '1.1');
+          await enrollOnCA(mockClient, 'admin');
           expect.fail();
         } catch (error) {
           expect(error.message).equal('Already exists');
@@ -148,13 +137,13 @@ describe('#initializeCrypto', () => {
     describe('#enrollIdentity', () => {
       it('should return user oject', async () => {
         mockClient.createUser.returns(mockUser);
-        const result = await enrollIdentity(mockClient, 'admin', '1.1');
+        const result = await enrollIdentity(mockClient, 'admin');
         expect(result).to.be.eql(mockUser);
       });
       it('should throw', async () => {
         mockCA.register.rejects(new Error('Already exists'));
         try {
-          await enrollIdentity(mockClient, 'admin', '1.1');
+          await enrollIdentity(mockClient, 'admin');
           expect.fail();
         } catch (error) {
           expect(error.message).equal('Already exists');
@@ -166,13 +155,13 @@ describe('#initializeCrypto', () => {
             "is missing this client's organization and certificate authority YYY",
           ),
         );
-        const result = await enrollIdentity(mockClient, 'admin', '1.1');
+        const result = await enrollIdentity(mockClient, 'admin');
         expect(result).to.be.eql(mockUser);
       });
       it('should throw', async () => {
         mockClient.getCertificateAuthority.returns(new Error('XYZ Error'));
         try {
-          await enrollIdentity(mockClient, 'admin', '1.1');
+          await enrollIdentity(mockClient, 'admin');
           expect.fail();
         } catch (error) {
           expect(error.message).equal('XYZ Error');
@@ -181,7 +170,7 @@ describe('#initializeCrypto', () => {
       it('should throw not enrolled', async () => {
         mockUser.isEnrolled.returns(false);
         try {
-          await enrollIdentity(mockClient, 'admin', '1.1');
+          await enrollIdentity(mockClient, 'admin');
           expect.fail();
         } catch (error) {
           expect(error.message).equal('User was not enrolled');

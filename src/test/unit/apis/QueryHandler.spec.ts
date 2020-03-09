@@ -17,42 +17,27 @@
 /* tslint:disable:variable-name */
 const TransactionID = require('fabric-client/lib/TransactionID');
 
-import * as FabricClient from 'fabric-client';
-import * as FabricClientLegacy from 'fabric-client-legacy';
+import FabricClient from 'fabric-client';
 
-import * as sinon from 'sinon';
 import * as chai from 'chai';
-import QueryHandler from '../../../app/helpers/QueryHandler';
+import * as sinon from 'sinon';
+import QueryHandler from '../../../app/apis/QueryHandler';
 
 const { expect } = chai;
 chai.use(require('chai-as-promised'));
-class ChannelPeer {
-  constructor() {}
-  getPeer() {}
-}
 describe('QueryHandler', () => {
   let mockPeer: any;
-  let mockPeerLegacy: any;
   let mockPeerList: any;
-  let mockPeerListLegacy: any;
   let mockTransactionID: any;
   let mockChannel: any;
-  let mockChannelLegacy: any;
-  let queryHandlerLegacy: any;
   let queryHandler: any;
   beforeEach(() => {
-    mockPeerLegacy = sinon.createStubInstance(FabricClientLegacy.Peer);
-    mockPeerLegacy.getName.returns('Peer1');
-    mockPeerLegacy.index = 1;
     mockPeer = sinon.createStubInstance(FabricClient.Peer);
     mockPeer.getName.returns('Peer2');
     mockPeer.index = 1;
-    mockPeerListLegacy = [mockPeerLegacy];
     mockPeerList = [mockPeer];
     mockTransactionID = sinon.createStubInstance(TransactionID);
     mockChannel = sinon.createStubInstance(FabricClient.Channel);
-    mockChannelLegacy = sinon.createStubInstance(FabricClientLegacy.Channel);
-    queryHandlerLegacy = new QueryHandler(mockPeerListLegacy);
     queryHandler = new QueryHandler(mockPeerList);
   });
   afterEach(() => {
@@ -61,8 +46,8 @@ describe('QueryHandler', () => {
 
   describe('#constructor', () => {
     it('should return targets initilized', () => {
-      expect(queryHandlerLegacy.targets).to.have.lengthOf(1);
-      expect(queryHandlerLegacy.targets).to.eql(mockPeerListLegacy);
+      expect(queryHandler.targets).to.have.lengthOf(1);
+      expect(queryHandler.targets).to.eql(mockPeerList);
     });
   });
 
@@ -75,18 +60,17 @@ describe('QueryHandler', () => {
       errorResponse.status = 500;
       errorResponse.isProposalResponse = true;
       validResponse = [Buffer.from('hello world')];
-      mockChannelLegacy.queryByChaincode.resolves(validResponse);
       mockChannel.queryByChaincode.resolves(validResponse);
     });
 
     it('should return error ', async () => {
-      mockChannelLegacy.queryByChaincode.resolves([errorResponse]);
+      mockChannel.queryByChaincode.resolves([errorResponse]);
       const result: {
         status: string;
         payload: any[];
-      } = await queryHandlerLegacy.queryChaincode(
+      } = await queryHandler.queryChaincode(
         'chaincodeId',
-        mockChannelLegacy,
+        mockChannel,
         mockTransactionID,
         'myfunc',
         ['arg1', 'arg2'],
@@ -97,19 +81,6 @@ describe('QueryHandler', () => {
     });
 
     it('should return success and valid payload', async () => {
-      const result = await queryHandlerLegacy.queryChaincode(
-        'chaincodeId',
-        mockChannelLegacy,
-        mockTransactionID,
-        'myfunc',
-        ['arg1', 'arg2'],
-      );
-      expect(result.status).to.equal('SUCCESS');
-      expect(result.payload).to.eql(
-        validResponse.map(item => item.toString('utf8')),
-      );
-    });
-    it('should return success and valid payload for latest channel', async () => {
       const result = await queryHandler.queryChaincode(
         'chaincodeId',
         mockChannel,
@@ -122,25 +93,25 @@ describe('QueryHandler', () => {
         validResponse.map(item => item.toString('utf8')),
       );
     });
-    it('sould fail if chaincode throws', async () => {
-      mockChannelLegacy.queryByChaincode.rejects(
+    it('sould fail if queryByChaincode throws', async () => {
+      mockChannel.queryByChaincode.rejects(
         new Error('queryByChaincode failed'),
       );
       return expect(
-        queryHandlerLegacy.queryChaincode(
+        queryHandler.queryChaincode(
           'chaincodeId',
-          mockChannelLegacy,
+          mockChannel,
           mockTransactionID,
           'myfunc',
           ['arg1', 'arg2'],
         ),
       ).to.be.rejected;
     });
-    it('sould fail if chaincode throws', async () => {
-      mockChannelLegacy.queryByChaincode.resolves(null);
-      const result = await queryHandlerLegacy.queryChaincode(
+    it('sould fail if queryByChaincode returns null', async () => {
+      mockChannel.queryByChaincode.resolves(null);
+      const result = await queryHandler.queryChaincode(
         'chaincodeId',
-        mockChannelLegacy,
+        mockChannel,
         mockTransactionID,
         'myfunc',
         ['arg1', 'arg2'],

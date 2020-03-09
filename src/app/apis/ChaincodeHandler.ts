@@ -13,62 +13,69 @@
  * or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-import * as types from '../types';
-import FabricClient from 'fabric-client';
-import FabricClientLegacy from 'fabric-client-legacy';
-import fsExtra from 'fs-extra';
 import decompress from 'decompress';
+import FabricClient, { Package } from 'fabric-client';
+import fsExtra from 'fs-extra';
 import util from 'util';
-import TransactionHandler from './TransactionHandler';
+import * as types from '../types';
 import { getLogger } from '../utils/logger';
+import TransactionHandler from './TransactionHandler';
 const logger = getLogger('ChaincodeHandler');
 const FILE_UPLOAD_LOCATION = '/tmp/';
 const FILE_EXTENSION = '.compressed';
 const CHAINCODE_PACKAGE_FORMAT = 'cds';
+const RADIX = 36;
+const START = 2;
 /**
  * This class provides functionality to read the world state of ledger .
  * It does not change the state of ledger . To change state of ledger
  *  see [[TransactionHandler]]
  */
 export default class ChaincodeHandler implements types.ChaincodeHandler {
-  private targets: (FabricClient.Peer | FabricClientLegacy.Peer)[];
+  private targets: FabricClient.Peer[];
 
-  constructor(peerList: (FabricClient.Peer | FabricClientLegacy.Peer)[]) {
+  constructor(peerList: FabricClient.Peer[]) {
     this.targets = peerList;
   }
   /**
-   * Queries the instantiated chaincode and return its results.
-   * The transaction function will be evaluated on the endorsing peers but
-   * the ledger state would not be changed in any way.
-   * This is used for querying the world state.
+   * Installs chaincode on target peers.
    * @async
+   * @param {FabricClient} client - Hyperledger fabric client
    * @param {string} chaincodeId - Chaincode id
-   * @param {FabricClient.Channel | FabricClientLegacy.Channel} channel -
-   *  Hyperledger fabric channel object (module:fabric-client.Channel)
-   * @param {TransactionId} txId - TransactionId (module:fabric-client.TransactionId)
-   * @param {string} fcn - Name of the chaincode function to be executed
-   * @param {...string} [args] Transaction function arguments.
+   * @param {Buffer} chaincode - Chaincode buffer
+   * @param {types.ChaincodeSpec} chaincodeSpec - Specification
+   * of chaincode , all fields are mandatory
    */
-  async installChaincode(
-    client: FabricClient | FabricClientLegacy, chaincodeId: string,
-    chaincode: Buffer, chaincodeSpec: types.ChaincodeSpec,
-  ) : Promise<types.ApiResponse> {
+  public async installChaincode(
+    client: FabricClient,
+    chaincodeId: string,
+    chaincode: Buffer,
+    chaincodeSpec: Required<types.ChaincodeSpec>,
+  ): Promise<types.ApiResponse> {
     const installResponse: types.ApiResponse = {
+      payload: null,
       status: types.Response.Failure,
-      payload: 'null',
     };
     let chaincodePackage = chaincode;
-    const fabricClient: any = client;
     if (chaincodeSpec.uploadType !== CHAINCODE_PACKAGE_FORMAT) {
-      const outFile = FILE_UPLOAD_LOCATION.concat(chaincodeId).concat(FILE_EXTENSION);
-      fsExtra.writeFileSync(
-        outFile , chaincode);
-      const destinationDir = `${FILE_UPLOAD_LOCATION}${Math.random().toString(36).substring(2)}/`;
+      const outFile = FILE_UPLOAD_LOCATION.concat(chaincodeId).concat(
+        FILE_EXTENSION,
+      );
+      fsExtra.writeFileSync(outFile, chaincode);
+      const destinationDir = `${FILE_UPLOAD_LOCATION}${Math.random()
+        .toString(RADIX)
+        .substring(START)}/`;
       await decompress(
-        FILE_UPLOAD_LOCATION.concat(chaincodeId).concat(FILE_EXTENSION), destinationDir);
-      const outDirName = fsExtra.readdirSync(destinationDir).
-        filter(f => fsExtra.statSync(destinationDir.concat('/').concat(f)).isDirectory())[0];
-      const pkg = await require('fabric-client/lib/Package').fromDirectory({
+        FILE_UPLOAD_LOCATION.concat(chaincodeId).concat(FILE_EXTENSION),
+        destinationDir,
+      );
+      const outDirName = fsExtra.readdirSync(destinationDir).filter(
+        f =>
+          fsExtra
+            .statSync(destinationDir.concat('/').concat(f))
+            .isDirectory() && !f.startsWith('.'), // For .DS_Store and ._ files
+      )[0];
+      const pkg = await Package.fromDirectory({
         name: chaincodeId,
         version: chaincodeSpec.version,
         path: destinationDir.concat(outDirName),
@@ -85,12 +92,12 @@ export default class ChaincodeHandler implements types.ChaincodeHandler {
       chaincodePath: '',
       targets: this.targets,
       chaincodeVersion: chaincodeSpec.version,
-      txId: fabricClient.newTransactionID(true),
+      txId: client.newTransactionID(true),
     };
-    const results = await fabricClient.installChaincode(request);
+    const results = await client.installChaincode(request);
     const proposalResponses = results[0];
     let allGood = true;
-    const badResponses:any = [];
+    const badResponses: any = [];
     proposalResponses.forEach((pr: any) => {
       let oneGood = false;
       if (pr.response && pr.response.status === 200) {
@@ -105,31 +112,47 @@ export default class ChaincodeHandler implements types.ChaincodeHandler {
 
     if (allGood) {
       const proposalResponse = proposalResponses[0];
-      logger.info(util.format(
-        'Successfully sent install Proposal and received ProposalResponse: Status - %s',
-        proposalResponse));
+      logger.info(
+        util.format(
+          'Successfully sent install Proposal and received ProposalResponse: Status - %s',
+          proposalResponse,
+        ),
+      );
       installResponse.status = types.Response.Success;
       installResponse.payload = 'Successfully Installed chaincode';
       return installResponse;
     }
 
-    logger.error('Failed to send install Proposal or receive valid response. Response null or status is not 200. exiting...');
+    logger.error(
+      'Failed to send install Proposal or receive valid response. Response null or status is not 200. exiting...',
+    );
     logger.error(badResponses);
     throw new Error(badResponses);
   }
-  async instantiateOrUpgrade(
+  /**
+   * Instantiates or upgrades chaincode
+   * @async
+   * @param {types.AdminFunctions} functionType - Type of function , e.g instantiate or upgrade
+   * @param {FabricClient.Channel} channel -
+   *  Hyperledger fabric channel object (module:fabric-client.Channel)
+   * @param {TransactionId} txId - TransactionId (module:fabric-client.TransactionId)
+   * @param {string} chaincodeId - Chaincode id
+   * @param {types.ChaincodeSpec} chaincodeSpec - Specification
+   * @param {string} fcn - Initiation function name e.g init
+   * @param {...string} [args] Chaincode intantiation arguments.
+   */
+  public async instantiateOrUpgrade(
     functionType: types.AdminFunctions,
-    channel: FabricClient.Channel | FabricClientLegacy.Channel,
+    channel: FabricClient.Channel,
     txId: FabricClient.TransactionId,
     chaincodeId: string,
     chaincodeSpec: types.ChaincodeSpec,
     fcn: string,
     args: string[],
-  ) : Promise<types.ApiResponse> {
+  ): Promise<types.ApiResponse> {
     return new TransactionHandler({
-      chaincodeVersion: chaincodeSpec.version,
-      chaincodeType: chaincodeSpec.language, transactionType: functionType,
-    }).
-      submit(channel, txId, fcn, chaincodeId, args);
+      chaincodeSpec,
+      transactionType: functionType,
+    }).submit(channel, txId, fcn, chaincodeId, args);
   }
 }

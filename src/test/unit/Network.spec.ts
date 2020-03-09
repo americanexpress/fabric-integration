@@ -17,7 +17,6 @@
 /* tslint:disable:variable-name */
 import { expect } from 'chai';
 import FabricClient from 'fabric-client';
-import FabricClientLegacy from 'fabric-client-legacy';
 import * as fsExtra from 'fs-extra';
 import * as path from 'path';
 import * as sinon from 'sinon';
@@ -27,15 +26,16 @@ import Network from '../../app/Network';
 import * as types from '../../app/types';
 const EventHub = require('fabric-client/lib/ChannelEventHub');
 const TransactionID = require('fabric-client/lib/TransactionID');
-const ClientLegacy = require('fabric-client-legacy');
-const Client = require('fabric-client');
 
 // test cryptoStore location
 const storePath = path.join(__dirname, '../../../WALLET/hfc-key-store/test');
 
 // test chaincode path
 
-const chaincodeZipPath = path.join(__dirname, '../chaincode/chaincode_example02.zip');
+const chaincodeZipPath = path.join(
+  __dirname,
+  '../chaincode/chaincode_example02.zip',
+);
 // test config file without certificate authority
 const configWithoutCA = path.join(
   __dirname,
@@ -57,7 +57,6 @@ describe('#Network', function exec() {
   const fakeProposal = { proposal: 'all good' };
   const fakeHeader = { header: 'fakeuu' };
   let mockChannel: any;
-  let mockChannelLegacy: any;
   let stubClient: any;
   let mockPeer: any;
   let mockPeerList: any;
@@ -107,8 +106,12 @@ describe('#Network', function exec() {
     stubEventHub._stubInfo = 'eventHub';
     stubEventHub.getPeerAddr.returns('eventHubAddress');
     stubEventHub.registerTxEvent.yields('txID', 'VALID', '12345');
-    stubEventHub.registerChaincodeEvent.yields({ payload:'eventpayload' },
-                                               '12345', 'txID', 'VALID');
+    stubEventHub.registerChaincodeEvent.yields(
+      { payload: 'eventpayload' },
+      '12345',
+      'txID',
+      'VALID',
+    );
     stubClient = sinon.createStubInstance(FabricClient);
     mockChannel = sinon.createStubInstance(FabricClient.Channel);
     mockChannel.getChannelEventHubsForOrg.returns([stubEventHub]);
@@ -118,8 +121,6 @@ describe('#Network', function exec() {
 
     transactionId = sinon.createStubInstance(TransactionID);
     transactionId.getTransactionID.returns('TRANSACTION_ID');
-    mockChannelLegacy = sinon.createStubInstance(FabricClientLegacy.Channel);
-
   });
   afterEach(() => {
     sinon.restore();
@@ -141,13 +142,7 @@ describe('#Network', function exec() {
       network.dispose();
     });
     describe('#getChannel', () => {
-      it('should return Legacy Channel object', async () => {
-        network = new Network(new Gateway(), mockChannelLegacy);
-        expect(network.getChannel()).to.be.an.instanceof(
-          FabricClientLegacy.Channel,
-        );
-      });
-      it('should return Latest Channel object', async () => {
+      it('should return Channel object', async () => {
         expect(network.getChannel()).to.be.an.instanceof(FabricClient.Channel);
       });
     });
@@ -159,26 +154,20 @@ describe('#Network', function exec() {
       });
       it('should return Contract object', async () => {
         const gateway = new Gateway();
-        await gateway.connect(
-          configWithoutCA,
-          {
-            identity,
-            keystore: storePath,
-          },
-        );
+        await gateway.connect(configWithoutCA, {
+          identity,
+          keystore: storePath,
+        });
         const network = await gateway.getNetwork(channelName);
         expect(network.getContract(chaincodeId)).to.be.an.instanceof(Contract);
         gateway.disconnect();
       });
       it('should return Contract object from map', async () => {
         const gateway = new Gateway();
-        await gateway.connect(
-          configWithoutCA,
-          {
-            identity,
-            keystore: storePath,
-          },
-        );
+        await gateway.connect(configWithoutCA, {
+          identity,
+          keystore: storePath,
+        });
         const network = await gateway.getNetwork(channelName);
         let contract = network.getContract(chaincodeId);
         expect(contract).to.be.an.instanceof(Contract);
@@ -190,13 +179,10 @@ describe('#Network', function exec() {
     describe('#_dispose', () => {
       it('should clear contracts and close channel', async () => {
         const gateway = new Gateway();
-        await gateway.connect(
-          configWithoutCA,
-          {
-            identity,
-            keystore: storePath,
-          },
-        );
+        await gateway.connect(configWithoutCA, {
+          identity,
+          keystore: storePath,
+        });
         const network = await gateway.getNetwork(channelName);
         network.getContract(chaincodeId);
         expect(network.getContract(channelName)).to.be.an.instanceof(Contract);
@@ -208,28 +194,10 @@ describe('#Network', function exec() {
     describe('#getPeerList', () => {
       it('should return peer list', async () => {
         const gateway = new Gateway();
-        await gateway.connect(
-          configWithoutCA,
-          {
-            identity,
-            keystore: storePath,
-          },
-        );
-        const network = await gateway.getNetwork(channelName);
-        const peerList = network.getPeerList();
-        expect(peerList).to.be.a('array');
-        expect(peerList).to.have.lengthOf(2);
-        gateway.disconnect();
-      });
-      it('should return peer list for Legacy Network', async () => {
-        const gateway = new Gateway(true);
-        await gateway.connect(
-          configWithoutCA,
-          {
-            identity,
-            keystore: storePath,
-          },
-        );
+        await gateway.connect(configWithoutCA, {
+          identity,
+          keystore: storePath,
+        });
         const network = await gateway.getNetwork(channelName);
         const peerList = network.getPeerList();
         expect(peerList).to.be.a('array');
@@ -240,49 +208,30 @@ describe('#Network', function exec() {
     describe('#installContract', () => {
       it('should install new contract', async () => {
         const gateway = new Gateway();
-        await gateway.connect(
-          configWithoutCA,
-          {
-            identity,
-            keystore: storePath,
-          },
-        );
+        await gateway.connect(configWithoutCA, {
+          identity,
+          keystore: storePath,
+        });
         stubClient.installChaincode.resolves(validProposalResponses);
         sinon.stub(gateway, 'getClient').returns(stubClient);
         const network = await gateway.getNetwork(channelName);
-        const chaincodeBuffer =  fsExtra.readFileSync(chaincodeZipPath);
-        const result = await network.installContract('chaincode_example02',
-                                                     chaincodeBuffer, { language:'node', version:'1.0.0', uploadType:'zip' });
+        const chaincodeBuffer = fsExtra.readFileSync(chaincodeZipPath);
+        const result = await network.installContract(
+          'chaincode_example02',
+          chaincodeBuffer,
+          { language: 'node', version: '1.0.0', uploadType: 'zip' },
+        );
         expect(result.payload).to.equal('Successfully Installed chaincode');
         gateway.disconnect();
-      });
-      it('should throw error for missing uploadType', async () => {
-        const gateway = new Gateway();
-        await gateway.connect(
-          configWithoutCA,
-          {
-            identity,
-            keystore: storePath,
-          },
-        );
-        stubClient.installChaincode.resolves(validProposalResponses);
-        sinon.stub(gateway, 'getClient').returns(stubClient);
-        const network = await gateway.getNetwork(channelName);
-        const chaincodeBuffer =  fsExtra.readFileSync(chaincodeZipPath);
-        expect(() => network.installContract('chaincode_example02', chaincodeBuffer,
-                                             { language:'node', version:'1.0.0' })).to.throw();
       });
     });
     describe('#instantiateContract', () => {
       it('should instantiate new contract', async () => {
         const gateway = new Gateway();
-        await gateway.connect(
-          configWithoutCA,
-          {
-            identity,
-            keystore: storePath,
-          },
-        );
+        await gateway.connect(configWithoutCA, {
+          identity,
+          keystore: storePath,
+        });
         stubClient.installChaincode.resolves(validProposalResponses);
         stubClient.newTransactionID.returns(transactionId);
         sinon.stub(gateway, 'getClient').returns(stubClient);
@@ -290,21 +239,20 @@ describe('#Network', function exec() {
         sinon.stub(network, 'getPeerList').returns(mockPeerList);
         sinon.stub(network, 'getChannel').returns(mockChannel);
         const result = await network.instantiateContract(
-'chaincode_example02',
-{ language:'node', version:'1.0.0', uploadType:'zip' }, 'init', ['a', '100', 'b', '200'],
+          'chaincode_example02',
+          { language: 'node', version: '1.0.0', uploadType: 'zip' },
+          'init',
+          ['a', '100', 'b', '200'],
         );
         expect(result.status).to.equal('SUCCESS');
         gateway.disconnect();
       });
       it('should upgrade  contract', async () => {
         const gateway = new Gateway();
-        await gateway.connect(
-          configWithoutCA,
-          {
-            identity,
-            keystore: storePath,
-          },
-        );
+        await gateway.connect(configWithoutCA, {
+          identity,
+          keystore: storePath,
+        });
         stubClient.installChaincode.resolves(validProposalResponses);
         stubClient.newTransactionID.returns(transactionId);
         sinon.stub(gateway, 'getClient').returns(stubClient);
@@ -312,8 +260,10 @@ describe('#Network', function exec() {
         sinon.stub(network, 'getPeerList').returns(mockPeerList);
         sinon.stub(network, 'getChannel').returns(mockChannel);
         const result = await network.upgradeContract(
-'chaincode_example02',
-{ language:'node', version:'1.0.0', uploadType:'zip' }, 'init', ['a', '100', 'b', '200'],
+          'chaincode_example02',
+          { language: 'node', version: '1.0.0', uploadType: 'zip' },
+          'init',
+          ['a', '100', 'b', '200'],
         );
         expect(result.status).to.equal('SUCCESS');
         gateway.disconnect();

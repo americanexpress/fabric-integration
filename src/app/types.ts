@@ -14,87 +14,84 @@
  * permissions and limitations under the License.
  */
 import FabricClient from 'fabric-client';
-import FabricClientLegacy from 'fabric-client-legacy';
 export const EVENTHUBHANDLER_TIMEOUT = 10000;
 export const EVENTHUBHANDLER_VALIDCODE = 'VALID';
 export const FABRIC_CA_TIMEOUT = 20000;
+export const INSTANTIATE_UPGRADE_TIMEOUT = 120000;
 export const CONNECTION_PROFILE_PATH = 'network-connection-profile-path';
-export const CLIENT_LEGACY_CONFIG_PATH =
-  './node_modules/fabric-client-legacy/config/default.json';
-export const CLIENT_CONFIG_PATH =
-  './node_modules/fabric-client/config/default.json';
-
 export const AFFILIATION_KEY = 'x-affiliations';
 export type ChaincodeType = 'golang' | 'car' | 'java' | 'node';
 export type AdminFunctions = 'install' | 'instantiate' | 'upgrade';
 export type UploadType = 'zip' | 'cds';
-export type eventCallback =  (err:Error,
-                              event?:FabricClient.ChaincodeEvent |
-   FabricClientLegacy.ChaincodeEvent,
-                              blockNumber?: number, tx?: any, code?: string)
- => Promise<void> | void;
-export type Options = {
+export type eventCallback = (
+  err: Error,
+  event?: FabricClient.ChaincodeEvent,
+  blockNumber?: number,
+  tx?: any,
+  code?: string,
+) => Promise<void> | void;
+export interface Options {
   identity: string;
   keystore: string;
-};
-export type TxnCustomEvent = {
+}
+export interface TxnCustomEvent {
   eventName: string;
   callback: eventCallback;
-};
-export type TransactionOptions = {
+}
+export interface TransactionOptions {
   txnCustomEvent?: TxnCustomEvent[];
-  transiantMap?: Object;
-  transactionType?:string;
-  chaincodeVersion?:string;
-  chaincodeType?:ChaincodeType;
-};
-
-export type ChaincodeSpec = {
+  transiantMap?: TransientMap;
+  transactionType?: string;
+  chaincodeSpec?: ChaincodeSpec;
+}
+export interface ChaincodeSpec {
   language: ChaincodeType;
   version: string;
-  uploadType?:UploadType;
-};
-export enum Versions {
-  Latest = '1.4',
-  Legacy = '1.1',
+  uploadType?: UploadType;
 }
 export enum Response {
   Success = 'SUCCESS',
   Failure = 'FAILURE',
 }
-export type ApiResponse = {
+export interface ApiResponse {
   status: string;
   payload: string | string[];
-};
+}
 export interface TransientMap {
   [key: string]: Buffer;
 }
 export interface Gateway {
-  setLegacyVersion(): void;
-  setLatestVersion(): void;
-  connect(config: string, options: Options): Promise<any>;
-  getCurrentIdentity(): FabricClient.User | FabricClientLegacy.User;
-  getClient(): FabricClient | FabricClientLegacy;
+  connect(config: string, options: Options): Promise<void>;
+  getCurrentIdentity(): FabricClient.User;
+  getClient(): FabricClient;
   disconnect(): void;
   getNetwork(networkName: string): Promise<Network>;
   getIsConnected(): boolean;
-  getVersion(): string;
 }
 
 export interface Network {
-  getChannel(): FabricClient.Channel | FabricClientLegacy.Channel;
+  getChannel(): FabricClient.Channel;
   getContract(chaincodeId: string): Contract;
   dispose(): void;
-  getPeerList(): (FabricClient.Peer | FabricClientLegacy.Peer)[];
+  getPeerList(): FabricClient.Peer[];
   getContractMap(): Map<string, Contract>;
-  installContract(chaincodeId: string, chaincode:Buffer, chaincodeSpec:ChaincodeSpec):
-   Promise<ApiResponse>;
+  installContract(
+    chaincodeId: string,
+    chaincode: Buffer,
+    chaincodeSpec: Required<ChaincodeSpec>,
+  ): Promise<ApiResponse>;
   upgradeContract(
-      chaincodeId: string, chaincodeSpec:ChaincodeSpec, functionName?:string, args?:string[]) :
-      Promise<ApiResponse>;
+    chaincodeId: string,
+    chaincodeSpec: ChaincodeSpec,
+    functionName?: string,
+    args?: string[],
+  ): Promise<ApiResponse>;
   instantiateContract(
-    chaincodeId: string, chaincodeSpec:ChaincodeSpec, functionName?:string, args?:string[]) :
-    Promise<ApiResponse>;
+    chaincodeId: string,
+    chaincodeSpec: ChaincodeSpec,
+    functionName?: string,
+    args?: string[],
+  ): Promise<ApiResponse>;
 }
 
 export interface Contract {
@@ -104,52 +101,50 @@ export interface Contract {
   getQueryHandler(): QueryHandler;
   getChaincodeId(): string;
   createTransaction(name: string): Transaction;
-  submitTransaction(name: string, ...args: any[]): Promise<ApiResponse>;
-  evaluateTransaction(
-    name: string,
-    ...args: any[]
-  ): Promise<ApiResponse>;
+  submitTransaction(name: string, ...args: string[]): Promise<ApiResponse>;
+  evaluateTransaction(name: string, ...args: string[]): Promise<ApiResponse>;
 }
 export interface TransactionHandler {
   setTxnOptions(txnOptions: TransactionOptions): void;
   submit(
-    channel: FabricClient.Channel | FabricClientLegacy.Channel,
+    channel: FabricClient.Channel,
     txId: FabricClient.TransactionId,
     fcn: string,
     chaincodeId: string,
-    args: any,
-  ): Promise<any>;
+    args: string[],
+  ): Promise<ApiResponse>;
 }
 
 export interface Transaction {
   getName(): string;
   getTransactionID(): FabricClient.TransactionId;
-  addEventListner(event:string, callback:eventCallback): void;
-  submit(...args: string[]): Promise<any>;
+  submit(...args: string[]): Promise<ApiResponse>;
   setInvokedOrThrow(): void;
   evaluate(...args: string[]): Promise<ApiResponse>;
-  setTransient(transientdata : TransientMap): void;
+  setTransactionOptions(txnOptions: TransactionOptions): void;
 }
 export interface QueryHandler {
   queryChaincode(
     chaincodeId: string,
-    channel: FabricClient.Channel | FabricClientLegacy.Channel,
+    channel: FabricClient.Channel,
     txId: FabricClient.TransactionId,
     fcn: string,
-    args: any,
-  ): Promise<any>;
+    args: string[],
+  ): Promise<ApiResponse>;
 }
 export interface ChaincodeHandler {
   installChaincode(
-client:FabricClient | FabricClientLegacy, chaincodeId: string,
-chaincode:Buffer|string, chaincodeSpec:ChaincodeSpec,
+    client: FabricClient,
+    chaincodeId: string,
+    chaincode: Buffer | string,
+    chaincodeSpec: Required<ChaincodeSpec>,
   ): Promise<ApiResponse>;
   instantiateOrUpgrade(
-    functionType:AdminFunctions,
-    channel: FabricClient.Channel | FabricClientLegacy.Channel,
+    functionType: AdminFunctions,
+    channel: FabricClient.Channel,
     txId: FabricClient.TransactionId,
     chaincodeId: string,
-    chaincodeSpec:ChaincodeSpec,
+    chaincodeSpec: ChaincodeSpec,
     fcn: string,
     args: string[],
   ): Promise<ApiResponse>;
@@ -159,10 +154,10 @@ export interface EventHandler {
     chaincodeId: string,
     eventName: string,
     callback: eventCallback,
-  ): Promise<any>;
+  ): Promise<void>;
   registerTxEvent(
     txIdString: string,
     txCustomEvents?: TxnCustomEvent[],
     chaincodeId?: string,
-  ): Promise<any>;
+  ): Promise<string>;
 }

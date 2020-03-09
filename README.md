@@ -11,18 +11,19 @@ You can use this project to do the following
 - Invoke chaincode (submit)
 - Install chaincode
 - Instantiate chaincode
+- Upgrade chaincode
+
 ## **Getting Started**
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See usage for notes on how to use this project to connect to your running fabric network.
 
 ### Prerequisites
 
-What things you need to install the software and how to install them
+To build and test, the following pre-requisites must be installed first:
 
-```
-Node >=8.9.4 <9.0
-yarn
-```
+- Node.js, version 8 is supported from 8.9.4 and higher.
+- Node.js, version 10 is supported from 10.15.3 and higher.
+- npm tool version 5.5.1 or higher
 
 ### Installing
 
@@ -33,7 +34,7 @@ Download and Install
 ```
 git clone {repo-url}
 cd fabric-integration
-yarn
+npm install
 ```
 
 ## Running tests and eslint
@@ -43,17 +44,15 @@ Connection profile files for tests are located in `src/test/config` directory
 ### Unit tests
 
 ```
-yarn test
+npm run test
 ```
 
 ### Integration tests
 
-There are different scenarios for integration tests, each is listed below
-
-> **Integration with local `Latest-(V4/V3/V2)` network.**
+> **Integration with local `(V4/V3/V2)` network.**
 
 ```
-yarn test:integration:latest
+npm run  test:integration
 ```
 
 For this command to work you should have V1.2/V1.3/V1.4 fabric network running on your local machine. You can use following steps to run fabric v1.4 network on you local.
@@ -74,40 +73,16 @@ cd $HOME/blockchain-fabric-v4/fabric-samples/balance-transfer
 ./testAPIs.sh
 ```
 
-> **Integration with local `Legacy-(V1)` network.**
-
-```
-yarn test:integration:legacy
-```
-
-For this command to work you should have V1.1 fabric network running on your local machine. You can use following steps to run fabbric v1.1 network on you local. Make sure you run this network using V1.1 docker images, one way to achieve that is to change image tags in docker compose and base files
-
-1. Open up new terminal window and execute following script. This will spin up version 1.4 fabric network
-
-```sh
-cd $HOME && mkdir blockchain-fabric-v1 && cd blockchain-fabric-v1
-git clone -b release-1.1 https://github.com/hyperledger/fabric-samples.git
-cd fabric-samples/balance-transfer
-./runApp.sh
-```
-
-2. Open new terminal and execute below script. This will initialize your fabric network with users, chaincode, channnel etc
-
-```sh
-cd $HOME/blockchain-fabric-v1/fabric-samples/balance-transfer
-./testAPIs.sh
-```
-
 ### eslint
 
 ```
-yarn lint
+npm run lint
 ```
 
 ## Documentation
 
 ```
-yarn docs
+npm run docs
 ```
 
 Run above command to generate documentation. You can find documentation under `docs`directory. Open `docs/index.html`in you browser to see documentation.
@@ -116,75 +91,92 @@ Run above command to generate documentation. You can find documentation under `d
 
 ### Install the package
 
-`yarn add fabric-integration`
+`npm add fabric-integration`
 
 ### Example
 
 ```javascript
-import Gateway from "fabric-integration";
+import Gateway from 'fabric-integration';
 
 try {
   /* For versions lower than 1.1 use
      const gateway = new Gateway(true);
      For more details check documentation.*/
 
-  const storePath = path.join(__dirname, "path to wallet");
-  const configLocation = path.join(__dirname, "path to configuration file");
-  const chaincodeId = "chaincode_example02";
-  const identity = "bcUser";
+  const storePath = path.join(__dirname, 'path to wallet');
+  const configLocation = path.join(__dirname, 'path to configuration file');
+  const chaincodeId = 'chaincode_example02';
+  const identity = 'bcUser';
 
   const gateway = new Gateway();
-  await gateway.connect(
-    configLocation,
-    {
-      identity,
-      keystore: storePath
-    }
-  );
+  await gateway.connect(configLocation, {
+    identity,
+    keystore: storePath,
+  });
 
   const network = await gateway.getNetwork(channelName);
 
   /* Install chaincode */
-  const chaincodeSpec = {language:'node', version:'1.0.0', uploadType:'zip'}
-  const chaincodeBuffer =  readfile('path/to/chaincode_example02.zip or chaincode_example02.cds');
-  let installResult = await network.installContract(chaincodeId, chaincodeBuffer, chaincodeSpec);
+  const chaincodeSpec = {
+    language: 'node' as const,
+    version: '1.0.0',
+    uploadType: 'zip' as const,
+  };
+  const chaincodeBuffer = readfile(
+    'path/to/chaincode_example02.zip or chaincode_example02.cds',
+  );
+  let installResult = await network.installContract(
+    chaincodeId,
+    chaincodeBuffer,
+    chaincodeSpec,
+  );
   console.log(`--${installResult.payload}--`);
 
   /* Instantiate chaincode */
 
-  const resultInstantiate = await network.instantiateContract(chaincodeId,chaincodeSpec, 'init', ['a', '100', 'b', '200']);
+  const resultInstantiate = await network.instantiateContract(
+    chaincodeId,
+    chaincodeSpec,
+    'init',
+    ['a', '100', 'b', '200'],
+  );
   console.log(`--${resultInstantiate.payload}--`);
 
   /* Upgrade chaincode */
-  
-  chaincodeSpec.version='1.0.1';
-  const resultUpgrade = await network.upgradeContract(chaincodeId,chaincodeSpec, 'init', ['a', '100', 'b', '200']);
+
+  chaincodeSpec.version = '1.0.1';
+  const resultUpgrade = await network.upgradeContract(
+    chaincodeId,
+    chaincodeSpec,
+    'init',
+    ['a', '100', 'b', '200'],
+  );
   console.log(`--${resultUpgrade.payload}--`);
 
   const contract = network.getContract(chaincodeId);
 
   /* Query chaincode */
-  let result = await contract.createTransaction("query").evaluate("a");
+  let result = await contract.createTransaction('query').evaluate('a');
   console.log(`--${result.payload}--`);
 
   /* Register events (chaincode event listners)
   #####################################################################
-  ### const transaction = await contract.createTransaction("move"); ###
-  ### transaction.addEventListner('testEvent', () => {});           ###
-  ### transaction.submit("a", "b", "10");                           ###
+  const transaction = await contract.createTransaction("invoke");
+  transaction.setTransactionOptions({ txnCustomEvent: [ { eventName: 'testevent1', callback: () => {}, }, ], });
+  transaction.submit("a", "b", "10");
   #####################################################################
   */
 
   /* Add Transaiant fields (e.g passing keys for encryption/decryption)
   #####################################################################
-  ### const transaction = await contract.createTransaction("move"); ###
-  ### transaction.setTransient({"encrypt-key":"abc","iv":"xyz"});   ###
-  ### transaction.submit("a", "b", "10");                           ###
+  const transaction = await contract.createTransaction("invoke");
+  transaction.setTransactionOptions({ transiantMap: { 'encrypt-key': 'abc', iv: 'xyz'}});
+  transaction.submit("a", "b", "10");
   #####################################################################
   */
 
   /* Submit Transaction */
-  result = await contract.createTransaction("move").submit("a", "b", "10");
+  result = await contract.createTransaction('invoke').submit('a', 'b', '10');
   console.log(`--${result.payload}--`);
   gateway.disconnect();
 } catch (error) {
@@ -194,8 +186,8 @@ try {
 
 ## Authors
 
-* Tajamul Fazili <tajamul.fazili@aexp.com> [TajamulFazili](https://github.com/tajamulfazili)
-* Andras L Ferenczi <andras.l.ferenczi@aexp.com> [andrasfe](https://github.com/andrasfe)
+- Tajamul Fazili <tajamul.fazili@aexp.com> [TajamulFazili](https://github.com/tajamulfazili)
+- Andras L Ferenczi <andras.l.ferenczi@aexp.com> [andrasfe](https://github.com/andrasfe)
 
 ## Contributing
 

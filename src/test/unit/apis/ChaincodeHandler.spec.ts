@@ -15,32 +15,34 @@
  */
 
 /* tslint:disable:variable-name */
-import Contract from '../../../app/Contract';
-import Network from '../../../app/Network';
-import FabricClient from 'fabric-client';
+import FabricClient, { Channel } from 'fabric-client';
 import * as fsExtra from 'fs-extra';
 import * as path from 'path';
-import FabricClientLegacy from 'fabric-client-legacy';
-const Channel = require('fabric-client-legacy/lib/Channel');
-const TransactionID = require('fabric-client-legacy/lib/TransactionID');
-const EventHub = require('fabric-client-legacy/lib/ChannelEventHub');
-import * as sinon from 'sinon';
+import Contract from '../../../app/Contract';
+import Network from '../../../app/Network';
+const TransactionID = require('fabric-client/lib/TransactionID');
 import * as chai from 'chai';
-import ChaincodeHandler from '../../../app/helpers/ChaincodeHandler';
+import * as sinon from 'sinon';
+import ChaincodeHandler from '../../../app/apis/ChaincodeHandler';
 const { expect } = chai;
 chai.use(require('chai-as-promised'));
 
 // test chaincode path
 
-const chaincodeZipPath = path.join(__dirname, '../../chaincode/chaincode_example02.zip');
-const chaincodecdsPath = path.join(__dirname, '../../chaincode/chaincode_example02@1.0.0.cds');
+const chaincodeZipPath = path.join(
+  __dirname,
+  '../../chaincode/chaincode_example02.zip',
+);
+const chaincodecdsPath = path.join(
+  __dirname,
+  '../../chaincode/chaincode_example02@1.0.0.cds',
+);
 
 describe('ChaincodeHandler', () => {
   const expectedResult = Buffer.from('42');
   const fakeProposal = { proposal: 'all good' };
   const fakeHeader = { header: 'fakeuu' };
   let mockPeer: any;
-  let mockPeerLegacy: any;
   let mockPeerList: any;
   let stubClient: any;
   const validProposalResponse = {
@@ -78,14 +80,11 @@ describe('ChaincodeHandler', () => {
 
   let stubContract: any;
   let channel: any;
-  let chaincodeHandler:ChaincodeHandler;
+  let chaincodeHandler: ChaincodeHandler;
 
   let transactionId: any;
 
   beforeEach(() => {
-    mockPeerLegacy = sinon.createStubInstance(FabricClientLegacy.Peer);
-    mockPeerLegacy.getName.returns('Peer1');
-    mockPeerLegacy.index = 1;
     mockPeer = sinon.createStubInstance(FabricClient.Peer);
     mockPeer.getName.returns('Peer2');
     mockPeer.index = 1;
@@ -118,53 +117,74 @@ describe('ChaincodeHandler', () => {
   describe('#installContract', function exec() {
     this.timeout(30000);
     it('should succeed for validProposalResponses', async () => {
-      const chaincodeBuffer =  fsExtra.readFileSync(chaincodeZipPath);
+      const chaincodeBuffer = fsExtra.readFileSync(chaincodeZipPath);
       stubClient.installChaincode.resolves(validProposalResponses);
       const result = await chaincodeHandler.installChaincode(
-stubClient, 'chaincode_example02', chaincodeBuffer, { language:'node', version:'1.0.0', uploadType:'zip' },
+        stubClient,
+        'chaincode_example02',
+        chaincodeBuffer,
+        { language: 'node', version: '1.0.0', uploadType: 'zip' },
       );
       expect(result.payload).to.equal('Successfully Installed chaincode');
     });
     it('should succeed for cds file with validProposalResponses', async () => {
-      const chaincodeBuffer =  fsExtra.readFileSync(chaincodecdsPath);
+      const chaincodeBuffer = fsExtra.readFileSync(chaincodecdsPath);
       stubClient.installChaincode.resolves(validProposalResponses);
       const result = await chaincodeHandler.installChaincode(
-stubClient, 'chaincode_example02', chaincodeBuffer, { language:'node', version:'1.0.0', uploadType:'cds' },
+        stubClient,
+        'chaincode_example02',
+        chaincodeBuffer,
+        { language: 'node', version: '1.0.0', uploadType: 'cds' },
       );
       expect(result.payload).to.equal('Successfully Installed chaincode');
     });
     it('should fail for invalidProposalResponses', async () => {
-      const chaincodeBuffer =  fsExtra.readFileSync(chaincodeZipPath);
+      const chaincodeBuffer = fsExtra.readFileSync(chaincodeZipPath);
       stubClient.installChaincode.resolves(errorProposalResponses);
 
-      return expect(chaincodeHandler.installChaincode(
-stubClient, 'chaincode_example02', chaincodeBuffer, { language:'node', version:'1.0.0', uploadType:'zip' },
-)).to.be.rejected;
-
+      return expect(
+        chaincodeHandler.installChaincode(
+          stubClient,
+          'chaincode_example02',
+          chaincodeBuffer,
+          { language: 'node', version: '1.0.0', uploadType: 'zip' },
+        ),
+      ).to.be.rejected;
     });
     it('should fail for mixedProposalResponses', async () => {
-      const chaincodeBuffer =  fsExtra.readFileSync(chaincodeZipPath);
+      const chaincodeBuffer = fsExtra.readFileSync(chaincodeZipPath);
       stubClient.installChaincode.resolves(mixedProposalResponses);
-      return expect(chaincodeHandler.installChaincode(
-stubClient, 'chaincode_example02', chaincodeBuffer, { language:'node', version:'1.0.0', uploadType:'zip' },
-)).to.be.rejected;
-
+      return expect(
+        chaincodeHandler.installChaincode(
+          stubClient,
+          'chaincode_example02',
+          chaincodeBuffer,
+          { language: 'node', version: '1.0.0', uploadType: 'zip' },
+        ),
+      ).to.be.rejected;
     });
     it('should fail for error from clients installCahincode invocation', async () => {
-      const chaincodeBuffer =  fsExtra.readFileSync(chaincodeZipPath);
+      const chaincodeBuffer = fsExtra.readFileSync(chaincodeZipPath);
       stubClient.installChaincode.rejects(new Error('Unable to connect'));
-      return expect(chaincodeHandler.installChaincode(
-stubClient, 'chaincode_example02', chaincodeBuffer, { language:'node', version:'1.0.0', uploadType:'zip' },
-)).to.be.rejected;
-
+      return expect(
+        chaincodeHandler.installChaincode(
+          stubClient,
+          'chaincode_example02',
+          chaincodeBuffer,
+          { language: 'node', version: '1.0.0', uploadType: 'zip' },
+        ),
+      ).to.be.rejected;
     });
   });
   describe('#instantiateOrUpgrade', function exec() {
     this.timeout(30000);
     it('should Successfully instantiate for validProposalResponses', async () => {
       const result = await chaincodeHandler.instantiateOrUpgrade(
-        'instantiate', channel, transactionId, 'chaincode_example02', { language:'node', version:'1.0.0',
-          uploadType:'zip' },
+        'instantiate',
+        channel,
+        transactionId,
+        'chaincode_example02',
+        { language: 'node', version: '1.0.0', uploadType: 'zip' },
         'init',
         ['a', '100', 'b', '200'],
       );
@@ -172,9 +192,11 @@ stubClient, 'chaincode_example02', chaincodeBuffer, { language:'node', version:'
     });
     it('should Successfully upgrade for validProposalResponses', async () => {
       const result = await chaincodeHandler.instantiateOrUpgrade(
-        'upgrade', channel, transactionId, 'chaincode_example02',
-        { language:'node', version:'1.0.0',
-          uploadType:'zip' },
+        'upgrade',
+        channel,
+        transactionId,
+        'chaincode_example02',
+        { language: 'node', version: '1.0.0', uploadType: 'zip' },
         'init',
         ['a', '100', 'b', '200'],
       );
@@ -182,24 +204,47 @@ stubClient, 'chaincode_example02', chaincodeBuffer, { language:'node', version:'
     });
     it('should fail for invalidProposalResponses', async () => {
       channel.sendInstantiateProposal.resolves(errorProposalResponses);
-      return expect(chaincodeHandler.instantiateOrUpgrade(
-'instantiate', channel, transactionId, 'chaincode_example02',
-{ language:'node', version:'1.0.0', uploadType:'zip' }, 'init', ['a', '100', 'b', '200'],
-      )).to.be.rejected;
+      return expect(
+        chaincodeHandler.instantiateOrUpgrade(
+          'instantiate',
+          channel,
+          transactionId,
+          'chaincode_example02',
+          { language: 'node', version: '1.0.0', uploadType: 'zip' },
+          'init',
+          ['a', '100', 'b', '200'],
+        ),
+      ).to.be.rejected;
     });
     it('should fail for mixedProposalResponses', async () => {
       channel.sendInstantiateProposal.resolves(mixedProposalResponses);
-      return expect(chaincodeHandler.instantiateOrUpgrade(
-'instantiate', channel, transactionId, 'chaincode_example02',
-{ language:'node', version:'1.0.0', uploadType:'zip' }, 'init', ['a', '100', 'b', '200'],
-      )).to.be.rejected;
+      return expect(
+        chaincodeHandler.instantiateOrUpgrade(
+          'instantiate',
+          channel,
+          transactionId,
+          'chaincode_example02',
+          { language: 'node', version: '1.0.0', uploadType: 'zip' },
+          'init',
+          ['a', '100', 'b', '200'],
+        ),
+      ).to.be.rejected;
     });
     it('should fail for error from channels sendInstantiateProposal invocation', async () => {
-      channel.sendInstantiateProposal.rejects(new Error('Failed to call function'));
-      return expect(chaincodeHandler.instantiateOrUpgrade(
-'instantiate', channel, transactionId, 'chaincode_example02',
-{ language:'node', version:'1.0.0', uploadType:'zip' }, 'init', ['a', '100', 'b', '200'],
-      )).to.be.rejected;
+      channel.sendInstantiateProposal.rejects(
+        new Error('Failed to call function'),
+      );
+      return expect(
+        chaincodeHandler.instantiateOrUpgrade(
+          'instantiate',
+          channel,
+          transactionId,
+          'chaincode_example02',
+          { language: 'node', version: '1.0.0', uploadType: 'zip' },
+          'init',
+          ['a', '100', 'b', '200'],
+        ),
+      ).to.be.rejected;
     });
   });
 });

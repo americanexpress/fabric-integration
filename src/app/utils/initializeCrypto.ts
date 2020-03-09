@@ -13,20 +13,17 @@
  * or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-import * as types from '../types';
-import FabricClientLegacy from 'fabric-client-legacy';
 import FabricClient from 'fabric-client';
-import { getClient } from './FabricClient';
+import * as types from '../types';
 import { getLogger } from './logger';
 const logger = getLogger('initializeCrypto');
 
 export const enrollOnCA = async (
-  client: FabricClientLegacy | FabricClient,
+  client: FabricClient,
   username: string,
-  version: string,
-) : Promise<FabricClient.User | FabricClientLegacy.User> => {
+): Promise<FabricClient.User> => {
   const caClient = client.getCertificateAuthority();
-  const connectionProfilePath = getClient(version).getConfigSetting(
+  const connectionProfilePath = FabricClient.getConfigSetting(
     types.CONNECTION_PROFILE_PATH,
   );
   const connectionProfile = require(connectionProfilePath);
@@ -40,30 +37,30 @@ export const enrollOnCA = async (
   const registrar =
     connectionProfile.certificateAuthorities[caNameKey].registrar[0];
 
-  const adminUserObj: FabricClientLegacy.User = await client.setUserContext({
-    username: registrar.enrollId,
+  const adminUserObj = await client.setUserContext({
     password: registrar.enrollSecret,
+    username: registrar.enrollId,
   });
   const affiliationKey = types.AFFILIATION_KEY;
-  const secret = await caClient.register(
+  const password = await caClient.register(
     {
-      enrollmentID: username,
       affiliation: registrar[affiliationKey][0],
+      enrollmentID: username,
     },
     adminUserObj,
   );
   const user = await client.setUserContext({
+    password,
     username,
-    password: secret,
   });
   return user;
 };
 
 export const enrollUsingCerts = async (
-  client: FabricClientLegacy | FabricClient,
+  client: FabricClient,
   username: string,
-) : Promise<FabricClient.User | FabricClientLegacy.User> => {
-  let user: FabricClient.User | FabricClientLegacy.User = null;
+): Promise<FabricClient.User> => {
+  let user: FabricClient.User = null;
   const mspid = client.getMspid();
   const orgName = client.getClientConfig().organization;
   const clientConfig: any = client;
@@ -73,28 +70,30 @@ export const enrollUsingCerts = async (
   const certPEM: any =
     clientConfig._network_config._network_config.organizations[orgName]
       .signedCert.pem;
+  const cryptoContent = {
+    privateKeyPEM: keyPEM.toString(),
+    signedCertPEM: certPEM.toString(),
+  };
   await client.createUser({
-    username,
+    cryptoContent,
     mspid,
-    cryptoContent: {
-      privateKeyPEM: keyPEM.toString(),
-      signedCertPEM: certPEM.toString(),
-    },
+    username,
     skipPersistence: false,
   });
   user = await client.getUserContext(username, true);
   return user;
 };
 export const enrollIdentity = async (
-  client: FabricClientLegacy | FabricClient,
+  client: FabricClient,
   username: string,
-  version: string,
-) : Promise<FabricClient.User | FabricClientLegacy.User> => {
-  let user: FabricClient.User | FabricClientLegacy.User = null;
+): Promise<FabricClient.User> => {
+  let user: FabricClient.User = null;
   try {
     const cA = client.getCertificateAuthority();
-    if (cA instanceof Error) { throw cA; }
-    user = await enrollOnCA(client, username, version);
+    if (cA instanceof Error) {
+      throw cA;
+    }
+    user = await enrollOnCA(client, username);
   } catch (error) {
     if (
       error.message.includes(
@@ -115,21 +114,19 @@ export const enrollIdentity = async (
 export const initializeCrypto = async (
   identity: string,
   keystore: string,
-  client: FabricClientLegacy | FabricClient,
-  version: string,
-) : Promise<FabricClient.User | FabricClientLegacy.User> => {
-  let user: FabricClient.User | FabricClientLegacy.User = null;
+  client: FabricClient,
+): Promise<FabricClient.User> => {
+  let user: FabricClient.User = null;
 
-  const fabricClient = getClient(version);
-  fabricClient.setConfigSetting('connection-timeout', types.FABRIC_CA_TIMEOUT);
-  const stateStore = await fabricClient.newDefaultKeyValueStore({
+  FabricClient.setConfigSetting('connection-timeout', types.FABRIC_CA_TIMEOUT);
+  const stateStore = await FabricClient.newDefaultKeyValueStore({
     path: keystore,
   });
 
   client.setStateStore(stateStore);
 
-  const cryptoSuite = fabricClient.newCryptoSuite();
-  const cryptoStore = fabricClient.newCryptoKeyStore({
+  const cryptoSuite = FabricClient.newCryptoSuite();
+  const cryptoStore = FabricClient.newCryptoKeyStore({
     path: keystore,
   });
 
@@ -138,7 +135,7 @@ export const initializeCrypto = async (
 
   user = await client.getUserContext(identity, true);
   if (!user) {
-    user = await enrollIdentity(client, identity, version);
+    user = await enrollIdentity(client, identity);
   } else {
     logger.debug('User %s was found to be registered and enrolled', identity);
   }

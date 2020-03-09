@@ -14,3 +14,4 @@ src/test/xunit.xml
 !tsconfig.json
 !tslint.json
 !/.vscode
+!sonar-project.properties

@@ -14,11 +14,11 @@
  * permissions and limitations under the License.
  */
 
-import { expect, assert } from 'chai';
+import { assert, expect } from 'chai';
+import fsExtra from 'fs-extra';
 import * as path from 'path';
 import Gateway from '../../app/Gateway';
 import * as types from '../../app/types';
-
 // cryptoStore location  for org1
 const keystore = path.join(
   __dirname,
@@ -34,6 +34,10 @@ const configLocationWithCA = path.join(
   __dirname,
   '../config/connection-profile-with-ca.json',
 );
+const chaincodePath = path.join(
+  __dirname,
+  '../chaincode/chaincode_example02.zip',
+);
 // valid channel name
 const channelName = 'mychannel';
 
@@ -43,7 +47,7 @@ const cAIdentity = Math.random()
   .toString(36)
   .substring(7);
 
-const chaincodeId = 'mycc';
+const chaincodeId = 'chaincode_example02';
 describe('#End to End Integration Test on Local Latest Network', function exec() {
   this.timeout(50000);
   let gatewayForNonCAClient: types.Gateway;
@@ -51,20 +55,14 @@ describe('#End to End Integration Test on Local Latest Network', function exec()
   beforeEach(async () => {
     gatewayForNonCAClient = new Gateway();
     gatewayForCAClient = new Gateway();
-    await gatewayForNonCAClient.connect(
-      configLocationWithoutCA,
-      {
-        identity,
-        keystore: keystore.concat('nonca'),
-      },
-    );
-    await gatewayForCAClient.connect(
-      configLocationWithCA,
-      {
-        identity: cAIdentity,
-        keystore: keystore.concat('ca'),
-      },
-    );
+    await gatewayForNonCAClient.connect(configLocationWithoutCA, {
+      identity,
+      keystore: keystore.concat('nonca'),
+    });
+    await gatewayForCAClient.connect(configLocationWithCA, {
+      identity: cAIdentity,
+      keystore: keystore.concat('ca'),
+    });
   });
   afterEach(() => {
     gatewayForNonCAClient.disconnect();
@@ -83,6 +81,42 @@ describe('#End to End Integration Test on Local Latest Network', function exec()
         return expect(user.isEnrolled()).to.be.true;
       });
     });
+    describe('#install', () => {
+      it('should install chaincode on peers', async () => {
+        const network = await gatewayForNonCAClient.getNetwork(channelName);
+        const chaincodeSpec = {
+          language: 'node' as const,
+          version: '1.0.0',
+          uploadType: 'zip' as const,
+        };
+        const chaincodeBuffer = fsExtra.readFileSync(chaincodePath);
+        const installResult = await network.installContract(
+          chaincodeId,
+          chaincodeBuffer,
+          chaincodeSpec,
+        );
+        return expect(installResult.payload).to.eql(
+          'Successfully Installed chaincode',
+        );
+      });
+    });
+    describe('#instantiate', () => {
+      it('should instantiate chaincode', async () => {
+        const network = await gatewayForNonCAClient.getNetwork(channelName);
+        const chaincodeSpec = {
+          language: 'node' as const,
+          version: '1.0.0',
+          uploadType: 'zip' as const,
+        };
+        const resultInstantiate = await network.instantiateContract(
+          chaincodeId,
+          chaincodeSpec,
+          'init',
+          ['a', '100', 'b', '200'],
+        );
+        return expect(resultInstantiate.status).to.eql('SUCCESS');
+      });
+    });
     describe('#evaluate', () => {
       it('should return query response with status success, NON Ca Client', async () => {
         const network = await gatewayForNonCAClient.getNetwork(channelName);
@@ -90,21 +124,26 @@ describe('#End to End Integration Test on Local Latest Network', function exec()
         const result = await contract.createTransaction('query').evaluate('a');
         assert.propertyVal(result, 'status', 'SUCCESS');
         return expect(
-          Array.isArray(result.payload) && result.payload.some(item => item.includes('Error: Failed to connect') ||
-          result.payload.includes('Error: Failed to connect'),
-        ),
+          Array.isArray(result.payload) &&
+            result.payload.some(
+              item =>
+                item.includes('Error: Failed to connect') ||
+                result.payload.includes('Error: Failed to connect'),
+            ),
         ).to.be.false;
       });
       it('should return query response with status success, CA Client', async () => {
         const network = await gatewayForCAClient.getNetwork(channelName);
         const contract = network.getContract(chaincodeId);
         const result = await contract.createTransaction('query').evaluate('a');
-        console.log(result);
         assert.propertyVal(result, 'status', 'SUCCESS');
         return expect(
-          Array.isArray(result.payload) && result.payload.some(item => item.includes('Error: Failed to connect') ||
-          result.payload.includes('Error: Failed to connect'),
-        ),
+          Array.isArray(result.payload) &&
+            result.payload.some(
+              item =>
+                item.includes('Error: Failed to connect') ||
+                result.payload.includes('Error: Failed to connect'),
+            ),
         ).to.be.false;
       });
     });
@@ -113,10 +152,10 @@ describe('#End to End Integration Test on Local Latest Network', function exec()
         const network = await gatewayForNonCAClient.getNetwork(channelName);
         const contract = network.getContract(chaincodeId);
         const result = await contract
-          .createTransaction('move')
+          .createTransaction('invoke')
           .submit('a', 'b', '10');
         assert.propertyVal(result, 'status', 'SUCCESS');
-        expect(result.payload)
+        return expect(result.payload)
           .to.be.a('string')
           .that.matches(/^[a-f0-9]{64}$/);
       });
@@ -124,10 +163,10 @@ describe('#End to End Integration Test on Local Latest Network', function exec()
         const network = await gatewayForCAClient.getNetwork(channelName);
         const contract = network.getContract(chaincodeId);
         const result = await contract
-          .createTransaction('move')
+          .createTransaction('invoke')
           .submit('a', 'b', '10');
         assert.propertyVal(result, 'status', 'SUCCESS');
-        expect(result.payload)
+        return expect(result.payload)
           .to.be.a('string')
           .that.matches(/^[a-f0-9]{64}$/);
       });
